@@ -11,6 +11,7 @@ from typing import List
 import requests
 from bs4 import BeautifulSoup
 from bs4 import Tag
+from fibers.utils.mapping import node_map_with_dependency
 
 from fibers.tree import Node
 from fibers.tree.node_attr import Attr
@@ -19,7 +20,8 @@ from fibers.tree.node_attr import Attr
 
 arxiv_url = "https://arxiv.org/html/2404.04326v1"
 
-#arxiv_url = "https://arxiv.org/html/2406.07003v1"
+
+# arxiv_url = "https://arxiv.org/html/2406.07003v1"
 
 
 class ArxivNode(Node):
@@ -232,6 +234,7 @@ def url_to_tree(url: str) -> ArxivNode:
     build_tree(head)
     return head
 
+
 def generate_summary_of_abstract(root: Node):
     for node in root.iter_subtree_with_bfs():
         if node.title == "Abstract":
@@ -242,7 +245,7 @@ def generate_summary_of_abstract(root: Node):
                 </Abstract>
                 """
             try:
-                abstract = chat.complete(expensive=True, parse="dict", cache=True)["summary"]
+                abstract = chat.complete(expensive=False, parse="dict", cache=True)["summary"]
                 set_summary_obj(node, abstract)
                 return abstract
             except Exception as e:
@@ -252,7 +255,7 @@ def generate_summary_of_abstract(root: Node):
             continue
 
 
-def generate_summary_for_node(node: ArxivNode, abstract: str):
+def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     if 'p' in node.get_id():  # Paragraph
         chat = Chat()
         chat += f"""Providing an abstract of a scientific paper and a specific paragraph from the same paper. Please read both and then summarize the paragraph in the context of the abstract. Make sure the summary for no more than 50 words, and make a keypoint for no more than 10 words which could use for a Table of Contents. Return your summary in JSON format with the tag "summary", the key point with tag "keypoint.
@@ -264,7 +267,7 @@ def generate_summary_for_node(node: ArxivNode, abstract: str):
     </Paragraph>
         """
         try:
-            result = chat.complete(expensive=True, parse="dict", cache=True)
+            result = chat.complete(expensive=False, parse="dict", cache=True)
             print("paragraph:", result)
             set_summary_obj(node, result['summary'])
             node.title = f"{node.title}: {result['keypoint']}"
@@ -272,31 +275,40 @@ def generate_summary_for_node(node: ArxivNode, abstract: str):
             set_summary_obj(node, "Failed to generate summary")
     elif re.match(r'^S\d+\.SS\d+$', node.get_id()) or re.match(r'^S\d+$', node.get_id()):  # Subsection
         chat = Chat()
+        for e in node.children():
+            if Summary not in e.attrs:
+                return False
         chat += f"""
         Please summarize the section of a scientific paper. You will be provide the abstract of the paper, and the summary of each paragraph in this subsection. Return the summary (About 100 words) of the subsection in JSON format with the tag "summary":
     <Abstract>
     {abstract}
     </Abstract>
     <Paragraphs>
-    {[get_summary(e) for e in node.children() if Summary in e.attrs]}
+    {[get_summary(e) for e in node.children() if Summary in e.attrs and get_summary(e)!="No summary"]}
     </Paragraphs>
         """
         try:
-            result = chat.complete(expensive=True, parse="dict", cache=True)
+            result = chat.complete(expensive=False, parse="dict", cache=True)
             print(f"section{node.get_id()}:{result}")
             set_summary_obj(node, result['summary'])
         except Exception as e:
             set_summary_obj(node, "Failed to generate summary")
+    else:   # Currently no summary for figures
+        if Summary not in node.attrs:
+            set_summary_obj(node, "No summary")
+    return True
 
 
 if __name__ == "__main__":
     os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
-  #  doc = url_to_tree("https://arxiv.org/html/2406.07003v1")
-    doc = url_to_tree("https://arxiv.org/html/2307.08177v3")
+    doc = url_to_tree("https://arxiv.org/html/2406.07003v1")
+    #doc = url_to_tree("https://arxiv.org/html/2307.08177v3")
     abstract = generate_summary_of_abstract(doc)
-    parallel_map(partial(generate_summary_for_node, abstract=abstract), doc.iter_subtree_with_bfs(), title="summary")
+    node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract), n_workers=20)
+    #parallel_map(partial(generate_summary_for_node, abstract=abstract), doc.iter_subtree_with_bfs(), title="summary")
     doc.display(dev_mode=True)
     # # sleep for 10 seconds to keep the server running
     import time
+
     while True:
         time.sleep(1)
