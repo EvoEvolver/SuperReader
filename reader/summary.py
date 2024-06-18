@@ -13,11 +13,10 @@ class Summary(Attr):
         super().__init__(node)
         self.content = ""
 
-    @classmethod
-    def render(cls, node: Node, rendered):
+    def render(self, rendered):
         contents = [f"""
         <summary/>
-        """, html.escape(get_summary(node))]
+        """, html.escape(get_summary(self.node))]
 
         # del rendered.tabs["contents"]
         rendered.tabs["summary"] = "<br/>".join(contents)
