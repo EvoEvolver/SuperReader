@@ -23,8 +23,11 @@ class Summary(Attr):
 
 
 def set_summary_obj(node: Node, summary: str):
-    summary_obj = Summary(node)
-    summary_obj.content = summary
+    if not node.has_attr(Summary):
+        summary_obj = Summary(node)
+        summary_obj.content = summary
+    else:
+        node.get_attr(Summary).content = summary
 
 
 def get_type(node: Node) -> str:
@@ -35,5 +38,5 @@ def get_docs(node: Node):
     raise NotImplementedError
 
 
-def get_summary(node: Node):
-    return node.get_attr(Summary).content
+def get_summary(node: Node) -> str:
+    return str(node.get_attr(Summary).content)
