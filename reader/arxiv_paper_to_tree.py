@@ -15,6 +15,7 @@ from fibers.utils.mapping import node_map_with_dependency
 
 from fibers.tree import Node
 from fibers.tree.node_attr import Attr
+from reader.summary import Summary
 
 # arxiv_url = "https://arxiv.org/html/2401.11314v2"
 
@@ -246,7 +247,7 @@ def generate_summary_of_abstract(root: Node):
                 """
             try:
                 abstract = chat.complete(expensive=False, parse="dict", cache=True)["summary"]
-                set_summary_obj(node, abstract)
+                Summary.get(node).content = abstract
                 return abstract
             except Exception as e:
                 abstract = node.content
@@ -269,10 +270,11 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
         try:
             result = chat.complete(expensive=False, parse="dict", cache=True)
             print("paragraph:", result)
-            set_summary_obj(node, result['summary'])
+            summary = result['summary']
+            Summary.get(node).content = summary
             node.title = f"{node.title}: {result['keypoint']}"
         except Exception as e:
-            set_summary_obj(node, "Failed to generate summary")
+            Summary.get(node).content = "Failed to generate summary"
     elif re.match(r'^S\d+\.SS\d+$', node.get_id()) or re.match(r'^S\d+$', node.get_id()):  # Subsection
         chat = Chat()
         for e in node.children():
@@ -284,18 +286,19 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     {abstract}
     </Abstract>
     <Paragraphs>
-    {[get_summary(e) for e in node.children() if Summary in e.attrs and get_summary(e)!="No summary"]}
+    {[Summary.get(e).content for e in node.children() if Summary in e.attrs and Summary.get(e).content != "No summary"]}
     </Paragraphs>
         """
         try:
             result = chat.complete(expensive=False, parse="dict", cache=True)
             print(f"section{node.get_id()}:{result}")
-            set_summary_obj(node, result['summary'])
+            summary1 = result['summary']
+            Summary.get(node).content = summary1
         except Exception as e:
-            set_summary_obj(node, "Failed to generate summary")
+            Summary.get(node).content = "Failed to generate summary"
     else:   # Currently no summary for figures
         if Summary not in node.attrs:
-            set_summary_obj(node, "No summary")
+            Summary.get(node).content = "No summary"
     return True
 
 
