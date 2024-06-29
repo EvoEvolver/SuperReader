@@ -25,8 +25,7 @@ class Relevant(Attr):
         contents = [html.escape(str(Relevant.get(self.node).relevant))]
         rendered.tabs["relevant"] = "<br/>".join(contents)
 
-
-def caselaw_sparse(node: Node):
+def caselaw_sparse(child: Node):
     def expand_contents(node: Node) -> str:
         if len(node.children()) == 0:
             return node.content
@@ -35,39 +34,34 @@ def caselaw_sparse(node: Node):
             content += expand_contents(e)
         return content
 
-    for child in reversed(list(node.iter_subtree_with_bfs())):
-        if len(child.children()) < 7:  # Only sparse the tree when more than 5 children
-            continue
-        if any(len(c.children()) > 0 for c in child.children()):
-            continue
-        keypoints_nodes, keypoints_prompt, node = get_key_points(child, expand_contents,
-                                                                 node)
+    keypoints_nodes, keypoints_prompt = get_key_points(child, expand_contents)
 
-        for c in child.children():
-            chat = Chat()
-            chat += f"""Providing a segment in a chapter of case law and the keypoints in that chapter, please match this segment with the relevant keypoint, and put the most relevant keypoint at top (don't rank all the keypoints, only choose a few amount all keypoints and then rank them).  
-            Return as JSON format.
-            Example of return format:
-            {{
-            "relevant":[id of the most relevant keypoint, id of the second relevant keypoint, ... ]
-        }}
-            Segment:
-            {c.get_attr(Summary).content}
-            Keypoints:
-            {keypoints_prompt}
-            """
-            res = chat.complete(cache=True, parse="dict")['relevant']
-            print(f"{c.get_attr(Summary).content}\n{res}\n\n")
-            relevant = [keypoints_nodes[i] for i in res]
-            Relevant.get(c).relevant = relevant
-            keypoints_nodes[res[0]].add_child(c)
-        child._children = keypoints_nodes[:]
-        for c in keypoints_nodes:
-            if len(c.children()) > 0:
-                child.add_child(c)
+    for c in child.children():
+        chat = Chat()
+        chat += f"""Providing a segment in a chapter of case law and the keypoints in that chapter, please match this segment with the relevant keypoint, and put the most relevant keypoint at top (don't rank all the keypoints, only choose a few amount all keypoints and then rank them).  
+        Return as JSON format.
+        Example of return format:
+        {{
+        "relevant":[id of the most relevant keypoint, id of the second relevant keypoint, ... ]
+    }}
+        Segment:
+        {c.get_attr(Summary).content}
+        Keypoints:
+        {keypoints_prompt}
+        """
+        res = chat.complete(cache=True, parse="dict")['relevant']
+        print(f"{c.get_attr(Summary).content}\n{res}\n\n")
+        relevant = [keypoints_nodes[i] for i in res]
+        Relevant.get(c).relevant = relevant
+        keypoints_nodes[res[0]].add_child(c)
+    child._children = []
+    for c in keypoints_nodes:
+        if len(c.children()) > 0:
+            child.add_child(c)
+    return True
 
 
-def get_key_points(child, expand_contents, node):
+def get_key_points(child, expand_contents):
     chat = Chat()
     promt = f"""
         Providing a chapter of a case law, please summarize 3 to 7 keypoints, each keypoint no more than 50 words, and each keypoint with a title, each title no more than 7 words. Return as JSON format:
@@ -93,4 +87,4 @@ def get_key_points(child, expand_contents, node):
         node = Node(keypoint['title'], keypoint['keypoint'])
         Summary.get(node).content = keypoint['keypoint']
         keypoints_nodes.append(node)
-    return keypoints_nodes, keypoints_prompt, node
+    return keypoints_nodes, keypoints_prompt
