@@ -1,5 +1,10 @@
+import re
+
+from bs4 import Tag
+
 from fibers.data_loader.html_to_tree import url_to_tree, SoupInfo
 from fibers.tree import Node
+from reader.reference import set_reference_obj
 
 
 def is_first_level(node: Node) -> bool:
@@ -26,6 +31,7 @@ def remove_page_num(root: Node):
             tag.decompose()
     SoupInfo.soup_to_content(root)
 
+
 def merge_blockquote(root: Node):
     """
     Merge blockquote into the previous node.
@@ -48,6 +54,7 @@ def merge_blockquote(root: Node):
     for node in nodes_to_remove:
         node.remove_self()
     SoupInfo.soup_to_content(root)
+
 
 def merge_small_segment(root: Node):
     """
@@ -78,8 +85,9 @@ def merge_small_segment(root: Node):
         node.remove_self()
     SoupInfo.soup_to_content(root)
 
+
 def get_caselaw_tree(url: str) -> Node:
-    doc = url_to_tree(url)
+    doc, soup = url_to_tree(url)
     doc = doc.children()[0]
     last_first_level = doc
     last_second_level = doc
@@ -96,7 +104,18 @@ def get_caselaw_tree(url: str) -> Node:
     remove_page_num(doc)
     merge_blockquote(doc)
     merge_small_segment(doc)
+    for c in doc.iter_subtree_with_bfs():
+        if len(c.children()) == 0:
+            html_string = c.content
+            pattern = r'.*name="r\[(\d+)\]".*'
+
+            match = re.search(pattern, html_string)
+            if match:
+                number = match.group(1)
+                print(number)
+                possible_contents = soup.find_all('a', class_='gsl_hash', recursive=True)
+                for t in possible_contents:
+                    if isinstance(t, Tag) and t.get('name') == f'[{number}]' and t.parent.name == 'p':
+                        print(t.parent)
+                        set_reference_obj(c, t.parent.__str__())
     return doc
-
-
-
