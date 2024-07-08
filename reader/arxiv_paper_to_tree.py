@@ -2,6 +2,7 @@ from functools import partial
 
 from mllm.utils import parallel_map
 
+from reader.reference import set_reference_obj
 from reader.summary import *
 from mllm import Chat
 import os
@@ -233,6 +234,19 @@ def url_to_tree(url: str) -> ArxivNode:
     pre_process_html_tree(soup)
     head = ArxivNode(soup, "root", "root", "", "")
     build_tree(head)
+    for c in head.iter_subtree_with_bfs():
+        html_string = c.content
+        pattern = rf'href="{url}#bib.bib(\d+)"'
+        matches = re.findall(pattern, html_string)
+        if matches:
+            references = []
+            for number in matches:
+                print(number)
+                possible_contents = soup.find_all('li', class_='ltx_bibitem', recursive=True, id=f'bib.bib{number}')
+                for t in possible_contents:
+                    references.append(t.__str__())
+            set_reference_obj(c, references)
+
     return head
 
 
@@ -308,8 +322,7 @@ if __name__ == "__main__":
     #doc = url_to_tree("https://arxiv.org/html/2307.08177v3")
     abstract = generate_summary_of_abstract(doc)
     node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract), n_workers=20)
-    #parallel_map(partial(generate_summary_for_node, abstract=abstract), doc.iter_subtree_with_bfs(), title="summary")
-    doc.display(dev_mode=True)
+    doc.display(dev_mode=False)
     # # sleep for 10 seconds to keep the server running
     import time
 

@@ -5,15 +5,15 @@ import html
 class Reference(Attr):
     def __init__(self, node: Node):
         super().__init__(node)
-        self.content = ""
+        self.contents = []
 
     def render(self, rendered):
-        contents = Reference.get(self.node).content
+        contents = Reference.get(self.node).contents
 
         # del rendered.tabs["contents"]
-        rendered.tabs["reference"] = f"<br/>{contents}"
+        rendered.tabs["reference"] = "<br/>".join(contents)
 
 
-def set_reference_obj(node: Node, content: str):
+def set_reference_obj(node: Node, contents: list[str]):
     ref_data = Reference(node)
-    ref_data.content = content
+    ref_data.contents = contents

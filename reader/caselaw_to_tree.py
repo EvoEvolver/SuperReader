@@ -107,15 +107,18 @@ def get_caselaw_tree(url: str) -> Node:
     for c in doc.iter_subtree_with_bfs():
         if len(c.children()) == 0:
             html_string = c.content
-            pattern = r'.*name="r\[(\d+)\]".*'
+            pattern = r'name="r\[(\d+)\]"'
 
-            match = re.search(pattern, html_string)
-            if match:
-                number = match.group(1)
-                print(number)
-                possible_contents = soup.find_all('a', class_='gsl_hash', recursive=True)
-                for t in possible_contents:
-                    if isinstance(t, Tag) and t.get('name') == f'[{number}]' and t.parent.name == 'p':
-                        print(t.parent)
-                        set_reference_obj(c, t.parent.__str__())
+            matches = re.findall(pattern, html_string)
+            if matches:
+                references = []
+                for number in matches:
+                    print(number)
+                    possible_contents = soup.find_all('a', class_='gsl_hash', recursive=True)
+                    for t in possible_contents:
+                        if isinstance(t, Tag) and t.get('name') == f'[{number}]' and t.parent.name == 'p':
+                            print(t.parent)
+                            references.append(t.parent.__str__())
+                set_reference_obj(c, references)
+
     return doc
