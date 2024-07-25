@@ -317,14 +317,9 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
 
 
 if __name__ == "__main__":
-    os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
     doc = url_to_tree("https://arxiv.org/html/2406.07003v1")
     #doc = url_to_tree("https://arxiv.org/html/2307.08177v3")
     abstract = generate_summary_of_abstract(doc)
     node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract), n_workers=20)
-    doc.display(dev_mode=False)
-    # # sleep for 10 seconds to keep the server running
-    import time
+    doc.display(dev_mode=True)
 
-    while True:
-        time.sleep(1)

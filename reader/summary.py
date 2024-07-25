@@ -20,7 +20,7 @@ class Summary(Attr):
         contents = [html.escape(str(Summary.get(self.node).content))]
 
         # del rendered.tabs["contents"]
-        rendered.tabs["summary"] = "<br/>".join(contents)
+        rendered.tools[0]["summary"] = "<br/>".join(contents)
 
 
 def generate_summary_for_node(node: Node) -> bool:

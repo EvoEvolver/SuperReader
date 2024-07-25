@@ -11,7 +11,7 @@ class Reference(Attr):
         contents = Reference.get(self.node).contents
 
         # del rendered.tabs["contents"]
-        rendered.tabs["reference"] = "<br/>".join(contents)
+        rendered.tools[1]["reference"] = "<br/>".join(contents)
 
 
 def set_reference_obj(node: Node, contents: list[str]):
