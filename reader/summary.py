@@ -10,6 +10,7 @@ from reader.caselaw_to_tree import is_first_level, is_second_level, is_third_lev
 if TYPE_CHECKING:
     from fibers.tree import Node
 
+high_quality_summary = False
 
 class Summary(Attr):
     def __init__(self, node: Node):
@@ -32,7 +33,7 @@ def generate_summary_for_node(node: Node) -> bool:
     </Paragraph>
         """
         try:
-            result = chat.complete(expensive=False, parse="dict", cache=True)
+            result = chat.complete(expensive=high_quality_summary, parse="dict", cache=True)
             print("paragraph:", result)
             summary = result['summary']
             Summary.get(node).content = summary
@@ -52,7 +53,7 @@ def generate_summary_for_node(node: Node) -> bool:
     </Paragraphs>
         """
         try:
-            result = chat.complete(expensive=False, parse="dict", cache=True)
+            result = chat.complete(expensive=high_quality_summary, parse="dict", cache=True)
             summary1 = result['summary']
             Summary.get(node).content = summary1
         except Exception as e:

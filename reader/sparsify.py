@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import html
@@ -15,6 +14,7 @@ from fibers.tree.node_attr import Attr
 if TYPE_CHECKING:
     from fibers.tree import Node
 
+high_quality_sparse = False
 
 class Relevant(Attr):
     def __init__(self, node: Node):
@@ -24,6 +24,7 @@ class Relevant(Attr):
     def render(self, rendered):
         contents = [html.escape(str(Relevant.get(self.node).relevant))]
         rendered.tabs["relevant"] = "<br/>".join(contents)
+
 
 def caselaw_sparse(child: Node):
     def expand_contents(node: Node) -> str:
@@ -49,7 +50,7 @@ def caselaw_sparse(child: Node):
         Keypoints:
         {keypoints_prompt}
         """
-        res = chat.complete(cache=True, parse="dict")['relevant']
+        res = chat.complete(expensive=high_quality_sparse, cache=True, parse="dict")['relevant']
         print(f"{c.get_attr(Summary).content}\n{res}\n\n")
         relevant = [keypoints_nodes[i] for i in res]
         Relevant.get(c).relevant = relevant
@@ -61,10 +62,10 @@ def caselaw_sparse(child: Node):
     return True
 
 
-def get_key_points(child, expand_contents):
+def get_key_points(child, expand_contents, high_quality=False):
     chat = Chat()
     promt = f"""
-        Providing a chapter of a case law, please summarize 3 to 7 keypoints, each keypoint no more than 50 words, and each keypoint with a title, each title no more than 7 words. Return as JSON format:
+        Providing a chapter of a case law, please summarize 3 to 7 keypoints, each keypoint no more than 50 words, and each keypoint with a title, each title no more than 7 words.Please ensure that the keypoints you summarize are arranged in logical order. Return as JSON format:
         Example of return format:
         {{
             "keypoints":[
@@ -78,7 +79,7 @@ def get_key_points(child, expand_contents):
         {expand_contents(child)}
         """
     chat += promt
-    keypoints = chat.complete(cache=True, parse="dict")['keypoints']
+    keypoints = chat.complete(expensive=high_quality_sparse, cache=True, parse="dict")['keypoints']
     print("keypoints:", keypoints)
     keypoints_prompt = ""
     keypoints_nodes = []

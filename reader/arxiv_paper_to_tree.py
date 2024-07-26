@@ -18,12 +18,7 @@ from fibers.tree import Node
 from fibers.tree.node_attr import Attr
 from reader.summary import Summary
 
-# arxiv_url = "https://arxiv.org/html/2401.11314v2"
-
-arxiv_url = "https://arxiv.org/html/2404.04326v1"
-
-
-# arxiv_url = "https://arxiv.org/html/2406.07003v1"
+high_quality_arxiv_summary = False
 
 
 class ArxivNode(Node):
@@ -260,7 +255,7 @@ def generate_summary_of_abstract(root: Node):
                 </Abstract>
                 """
             try:
-                abstract = chat.complete(expensive=False, parse="dict", cache=True)["summary"]
+                abstract = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)["summary"]
                 Summary.get(node).content = abstract
                 return abstract
             except Exception as e:
@@ -282,7 +277,7 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     </Paragraph>
         """
         try:
-            result = chat.complete(expensive=False, parse="dict", cache=True)
+            result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)
             print("paragraph:", result)
             summary = result['summary']
             Summary.get(node).content = summary
@@ -304,22 +299,27 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     </Paragraphs>
         """
         try:
-            result = chat.complete(expensive=False, parse="dict", cache=True)
+            result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)
             print(f"section{node.get_id()}:{result}")
             summary1 = result['summary']
             Summary.get(node).content = summary1
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
-    else:   # Currently no summary for figures
+    else:  # Currently no summary for figures
         if Summary not in node.attrs:
             Summary.get(node).content = "No summary"
     return True
 
 
 if __name__ == "__main__":
-    doc = url_to_tree("https://arxiv.org/html/2406.07003v1")
-    #doc = url_to_tree("https://arxiv.org/html/2307.08177v3")
-    abstract = generate_summary_of_abstract(doc)
-    node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract), n_workers=20)
-    doc.display(dev_mode=True)
+    # arxiv_url = "https://arxiv.org/html/2401.11314v2"
+    arxiv_url = "https://arxiv.org/html/2404.04326v1"
+    # arxiv_url = "https://arxiv.org/html/2406.07003v1"
 
+    high_quality_arxiv_summary = True
+
+    doc = url_to_tree(arxiv_url)
+    abstract = generate_summary_of_abstract(doc)
+    node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract),
+                             n_workers=20)
+    doc.display(dev_mode=True)
