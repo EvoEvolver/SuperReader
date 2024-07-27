@@ -18,20 +18,23 @@ class Summary(Attr):
         self.content = ""
 
     def render(self, rendered):
-        contents = [html.escape(str(Summary.get(self.node).content))]
 
         # del rendered.tabs["contents"]
-        rendered.tools[0]["summary"] = "<br/>".join(contents)
+        rendered.tools[0]["summary"] = html.escape(str(Summary.get(self.node).content))
 
 
 def generate_summary_for_node(node: Node) -> bool:
     if 'Segment' in node.title:  # Paragraph
         chat = Chat()
-        chat += f"""Providing a paragraph of a case law, write a summary about this paragraph (no more than 100 words). The summary should be a shortened version of the content of the it. And make a keypoint for no more than 10 words which could use for a Table of Contents. Return in JSON format with tag "summary" and tag "keypoint".
+        chat += f"""
+    Providing a paragraph of a case law, write a summary about the following paragraph
     <Paragraph>
     {node.content}
     </Paragraph>
-        """
+    Output a JSON with the following keys:
+    - "summary" (string):  a summary no more than 100 words. The summary should be a shortened version of the content of the it. 
+    - "keypoint" (string): a shorter summary for no more than 10 words which could use for a Table of Contents. 
+    """
         try:
             result = chat.complete(expensive=high_quality_summary, parse="dict", cache=True)
             print("paragraph:", result)
