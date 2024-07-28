@@ -34,6 +34,5 @@ if __name__ == "__main__":
                              partial(caselaw_sparse),
                              n_workers=20)
 
-    root.display(dev_mode=True)
-    exit(0)
+    root.display()
 
