@@ -24,7 +24,7 @@ class Summary(Attr):
 
 
 def generate_summary_for_node(node: Node) -> bool:
-    if 'Segment' in node.title:  # Paragraph
+    if 'Segment' in node.title[:7]:  # Paragraph
         chat = Chat()
         chat += f"""
     Providing a paragraph of a case law, write a summary about the following paragraph

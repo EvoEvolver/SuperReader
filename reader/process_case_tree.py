@@ -7,12 +7,15 @@ from reader.sparsify import caselaw_sparse, high_quality_sparse
 from reader.summary import generate_summary_for_node, high_quality_summary
 
 if __name__ == "__main__":
+    from forest import download_new_dist
+
+    download_new_dist()
     os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
     #url = "https://scholar.google.com/scholar_case?case=6657439937507584902"
 
-    #url = "https://scholar.google.com/scholar_case?case=4593667331706526094"
+    url = "https://scholar.google.com/scholar_case?case=4593667331706526094"
 
-    url = "https://scholar.google.com/scholar_case?case=3381199590391915384"
+    #url = "https://scholar.google.com/scholar_case?case=3381199590391915384"
     root = get_caselaw_tree(url)
 
     high_quality_sparse = True
@@ -34,6 +37,6 @@ if __name__ == "__main__":
                              partial(caselaw_sparse),
                              n_workers=20)
 
-    root.display(dev_mode=True)
+    root.display(dev_mode=False)
     exit(0)
 

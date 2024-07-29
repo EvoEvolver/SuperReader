@@ -105,7 +105,7 @@ def get_caselaw_tree(url: str) -> Node:
     merge_blockquote(doc)
     merge_small_segment(doc)
     for c in doc.iter_subtree_with_bfs():
-        if len(c.children()) == 0:
+        if len(c.children()) == 0:  # Add reference to nodes
             html_string = c.content
             pattern = r'name="r\[(\d+)\]"'
 
@@ -120,5 +120,7 @@ def get_caselaw_tree(url: str) -> Node:
                             print(t.parent)
                             references.append(t.parent.__str__())
                 set_reference_obj(c, references)
-
+        elif not (any(len(cc.children()) > 0 for cc in c.children())):
+            for i, cc in enumerate(c.children()):
+                cc.title += f"{i+1}:"
     return doc
