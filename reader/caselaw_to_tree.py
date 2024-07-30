@@ -120,7 +120,7 @@ def get_caselaw_tree(url: str) -> Node:
                             print(t.parent)
                             references.append(t.parent.__str__())
                 set_reference_obj(c, references)
-        elif not (any(len(cc.children()) > 0 for cc in c.children())):
-            for i, cc in enumerate(c.children()):
-                cc.title += f"{i+1}:"
+        elif any("Segment" == cc.title[:7] for cc in c.children()):
+            for i, cc in enumerate([cc for cc in c.children() if "Segment" == cc.title[:7]]):
+                cc.title += f"{i+1}"
     return doc
