@@ -216,14 +216,19 @@ def build_tree(parent: ArxivNode):
 
 
 def url_to_tree(url: str) -> ArxivNode:
+    os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
     global arxiv_url
     arxiv_url = url
     html_source = requests.get(url).text
+
+
     # try:
     #     with open("cached_page.html", "r", encoding="utf-8") as f:
     #         html_source = f.read()
     # except FileNotFoundError:
     #     print("Error: Cached HTML file not found.")
+
+    html_source = re.sub(rf'href="([^\'\"]+)"', r'href="\1" target="_blank"', html_source)
     soup = BeautifulSoup(html_source, "html.parser")
     replace_math_with_tex(soup)
     pre_process_html_tree(soup)
@@ -233,13 +238,15 @@ def url_to_tree(url: str) -> ArxivNode:
         html_string = c.content
         pattern = rf'href="{url}#bib.bib(\d+)"'
         matches = re.findall(pattern, html_string)
+        pattern = rf'href="{url}[^\'\"]*"'
+        c.content = re.sub(pattern, "style='color: blue;'", html_string)
+
         if matches:
             references = []
             for number in matches:
-                print(number)
-                possible_contents = soup.find_all('li', class_='ltx_bibitem', recursive=True, id=f'bib.bib{number}')
-                for t in possible_contents:
-                    references.append(t.__str__())
+                ref_text = soup.find('a', class_='ltx_ref', href=re.compile(rf'^{url}#bib.bib{number}$')).text
+                ref_content = soup.find('li', class_='ltx_bibitem', recursive=True, id=f'bib.bib{number}')
+                references.append(f'<a style=\'color: blue;\'>{ref_text}</a>{ref_content.__str__()}')
             set_reference_obj(c, references)
 
     return head
@@ -312,6 +319,7 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
 
 
 if __name__ == "__main__":
+    #os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
     # arxiv_url = "https://arxiv.org/html/2401.11314v2"
     arxiv_url = "https://arxiv.org/html/2404.04326v1"
     # arxiv_url = "https://arxiv.org/html/2406.07003v1"
