@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 high_quality_summary = False
 
+
 class Summary(Attr):
     def __init__(self, node: Node):
         super().__init__(node)
@@ -35,7 +36,7 @@ def generate_summary_for_node(node: Node) -> bool:
     {node.content}
     </Paragraph>
     Output a JSON with the following keys:
-    - "summary" (string):  a summary no more than 100 words. The summary should be a shortened version of the content of the it. 
+    - "summary" (string):  a summary about 3 sentences. The summary should be a shortened version of the content of the it. 
     - "keypoint" (string): a shorter summary for no more than 10 words which could use for a Table of Contents. 
     """
         try:
@@ -46,14 +47,13 @@ def generate_summary_for_node(node: Node) -> bool:
             node.title = f"{node.title}: {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
-    elif is_first_level(node) or is_second_level(node) or is_third_level(
-            node):  # Subsection
+    elif len(node.children()) > 0:  # Subsection
         chat = Chat()
         for e in node.children():
             if Summary not in e.attrs:
                 return False
         chat += f"""
-        Providing the summary of each paragraph of a case law in a section. Return the summary (About 100 words) of this section in JSON format with the tag "summary":
+        Providing the summary of each paragraph of a case law in a section. Return the summary (About 3 sentences) of this section in JSON format with the tag "summary":
     <Paragraphs>
     {[Summary.get(e).content for e in node.children() if Summary in e.attrs and Summary.get(e).content != "No summary"]}
     </Paragraphs>

@@ -5,7 +5,7 @@ import html
 from mllm import Chat
 
 from fibers.tree import Node
-from reader.summary import Summary
+from reader.summary import Summary, generate_summary_for_node
 
 from typing import TYPE_CHECKING
 
@@ -41,6 +41,7 @@ def caselaw_sparse(child: Node):
         print(node.title, id)
         node._children = child.children()[last_id:id+1]
         last_id = id+1
+        generate_summary_for_node(node)
     child._children = []
     for node, _ in fragments:
         child.add_child(node)
