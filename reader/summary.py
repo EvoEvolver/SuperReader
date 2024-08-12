@@ -19,8 +19,11 @@ class Summary(Attr):
 
     def render(self, rendered):
 
-        # del rendered.tabs["contents"]
-        rendered.tools[0]["summary"] = html.escape(str(Summary.get(self.node).content))
+        if len(self.node.content) > 0:
+            rendered.tools[0]["summary"] = html.escape(str(self.content))
+        else:
+            del rendered.tabs["content"]
+            rendered.tabs["summary"] = html.escape(str(self.content))
 
 
 def generate_summary_for_node(node: Node) -> bool:

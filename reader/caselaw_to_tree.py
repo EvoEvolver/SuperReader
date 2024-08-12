@@ -107,8 +107,12 @@ def get_caselaw_tree(url: str) -> Node:
     for c in doc.iter_subtree_with_bfs():
         if len(c.children()) == 0:  # Add reference to nodes
             html_string = c.content
-            pattern = r'name="r\[(\d+)\]"'
 
+            pattern = r'name="\[(\d+)\]'
+            if re.findall(pattern, html_string):
+                c._parent.remove_child(c)
+                continue
+            pattern = r'name="r\[(\d+)\]"'
             matches = re.findall(pattern, html_string)
             if matches:
                 references = []
