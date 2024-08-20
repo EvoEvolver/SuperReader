@@ -89,14 +89,13 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup) -> list[ArxivNode]:
     index_para = 1
     index_figure = 1
     for i, e in enumerate(sectionSoup.children):
-
         if not isinstance(e, Tag):
             continue
         class_ = e.get('class')
         print(i, e.name, class_)
-        if e.name == 'div' and 'ltx_para' in class_:
-            if not re.match(r'^S\d+\.p.$', e['id']):
-                continue
+        if e.name == 'div' and ('ltx_para' in class_ or 'ltx_theorem' in class_):
+            # if not re.match(r'^S\d+\.p.$', e['id']):
+            #     continue
             print(f"section: {e['id']}")
             # print(section)
             Paragraph = ArxivNode(e, e['id'], "paragraph",
@@ -156,7 +155,6 @@ def get_paragraph_nodes(subsectionSoup: BeautifulSoup) -> list[ArxivNode]:
         if e.name == 'div' and ('ltx_para' in class_ or 'ltx_theorem' in class_):
             # if not re.match(r'^S\d+\.SS\d+\.p.$', e['id']):
             #     continue
-            print(f"section: {e['id']}")
             # print(section)
             Paragraph = ArxivNode(e, e['id'], "paragraph",
                                   "paragraph " + str(index_para),
@@ -319,10 +317,18 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
 
 
 if __name__ == "__main__":
-    #os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
+    os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
     # arxiv_url = "https://arxiv.org/html/2401.11314v2"
-    arxiv_url = "https://arxiv.org/html/2404.04326v1"
+    # arxiv_url = "https://arxiv.org/html/2404.04326v1"
     # arxiv_url = "https://arxiv.org/html/2406.07003v1"
+
+    # arxiv_url = "https://arxiv.org/html/2402.01788v1"
+
+    # arxiv_url = "https://arxiv.org/html/2408.06361v1"
+
+    #arxiv_url = "https://arxiv.org/html/2408.05212v1"
+
+    arxiv_url = "https://arxiv.org/html/2408.08463"
 
     high_quality_arxiv_summary = True
 
