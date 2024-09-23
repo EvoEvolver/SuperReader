@@ -17,6 +17,7 @@ class Summary(Attr):
     def __init__(self, node: Node):
         super().__init__(node)
         self.content = ""
+        self.short_content = ""
 
     def render(self, rendered):
 
@@ -25,6 +26,8 @@ class Summary(Attr):
         else:
             del rendered.tabs["content"]
             rendered.tabs["summary"] = html.escape(str(self.content))
+        if self.short_content:
+            rendered.data["short_summary"] = self.short_content
 
 
 def generate_summary_for_node(node: Node) -> bool:

@@ -237,14 +237,14 @@ def url_to_tree(url: str) -> ArxivNode:
         pattern = rf'href="{url}#bib.bib(\d+)"'
         matches = re.findall(pattern, html_string)
         pattern = rf'href="{url}[^\'\"]*"'
-        c.content = re.sub(pattern, "style='color: blue;'", html_string)
+        c.content = re.sub(pattern, "style='color: cyan;'", html_string)
 
         if matches:
             references = []
             for number in matches:
                 ref_text = soup.find('a', class_='ltx_ref', href=re.compile(rf'^{url}#bib.bib{number}$')).text
                 ref_content = soup.find('li', class_='ltx_bibitem', recursive=True, id=f'bib.bib{number}')
-                references.append(f'<a style=\'color: blue;\'>{ref_text}</a>{ref_content.__str__()}')
+                references.append(f'<a style=\'color: cyan;\'>{ref_text}</a>{ref_content.__str__()}')
             set_reference_obj(c, references)
 
     return head
@@ -254,14 +254,16 @@ def generate_summary_of_abstract(root: Node):
     for node in root.iter_subtree_with_bfs():
         if node.title == "Abstract":
             chat = Chat()
-            chat += f"""This is an Abstract of a scientific paper, please write a 50 words summary about what this paper about from the summary, return the summary in JSON format with the tag "summary"
+            chat += f"""This is an Abstract of a scientific paper, please write a 80 words summary about what this paper about from the summary, and a 20 words brief describe about the content. For both the summary and the brief describe, please start directly with meaningful content and DON'T add meaning less leading words like 'Thi paper tells'/'This paragraph tells'. return the summary in JSON format with the tag "summary", and the brief discribe with tag "brief".
                 <Abstract>
                 {node.content}
                 </Abstract>
                 """
             try:
                 abstract = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)["summary"]
+                short_summary = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)["brief"]
                 Summary.get(node).content = abstract
+                Summary.get(node).short_content = short_summary
                 return abstract
             except Exception as e:
                 abstract = node.content
@@ -289,13 +291,13 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
             node.title = f"{node.title}: {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
-    elif re.match(r'^S\d+\.SS\d+$', node.get_id()) or re.match(r'^S\d+$', node.get_id()):  # Subsection
+    elif re.match(r'^S\d+\.SS\d+$', node.get_id()) or re.match(r'^S\d+$', node.get_id()):  # Section/ Subsection
         chat = Chat()
         for e in node.children():
             if Summary not in e.attrs:
                 return False
         chat += f"""
-        Please summarize the section of a scientific paper. You will be provide the abstract of the paper, and the summary of each paragraph in this subsection. Return the summary (About 100 words) of the subsection in JSON format with the tag "summary":
+        Please summarize the section of a scientific paper. You will be provide the abstract of the paper and the summary of each paragraph in this section. Return the summary (About 100 words) and a brief describe (About 29 words) of the section in JSON format with the tag "summary" and tag "brief". For both the summary and the brief describe, please start directly with meaningful content and DON'T add meaning less leading words like 'Thi paper tells'/'This paragraph tells':
     <Abstract>
     {abstract}
     </Abstract>
@@ -307,7 +309,9 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
             result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)
             print(f"section{node.get_id()}:{result}")
             summary1 = result['summary']
+            short_summary = result['brief']
             Summary.get(node).content = summary1
+            Summary.get(node).short_content = short_summary
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
     else:  # Currently no summary for figures
@@ -328,7 +332,7 @@ if __name__ == "__main__":
 
     #arxiv_url = "https://arxiv.org/html/2408.05212v1"
 
-    arxiv_url = "https://arxiv.org/html/2408.08463"
+    arxiv_url = "https://arxiv.org/html/2408.08463v1"
 
     high_quality_arxiv_summary = True
 
