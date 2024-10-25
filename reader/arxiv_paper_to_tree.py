@@ -1,5 +1,6 @@
 from functools import partial
 
+from markdown import markdown
 from mllm.utils import parallel_map
 
 from reader.reference import set_reference_obj
@@ -274,42 +275,57 @@ def generate_summary_of_abstract(root: Node):
 
 def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     if 'p' in node.get_id():  # Paragraph
-        chat = Chat()
-        chat += f"""Providing an abstract of a scientific paper and a specific paragraph from the same paper. Please read both and then summarize the paragraph in the context of the abstract. Make sure the summary for no more than 50 words, and make a keypoint for no more than 10 words which could use for a Table of Contents. Return your summary in JSON format with the tag "summary", the key point with tag "keypoint.
+        chat = Chat(dedent=True)
+        chat += f"""Providing an abstract of a scientific paper and a specific paragraph from the same paper. Please read both and then summarize the paragraph in the context of the abstract. 
     <Abstract>
     {abstract}
     </Abstract>
     <Paragraph>
     {node.content}
     </Paragraph>
+    <Requirement>
+    You are required to output a summary of the paragraph in the format of bullet points (in markdown). The summary should not be more than 50 words in total.
+    You are also required to output a keypoint for no more than 10 words which could use for a Table of Contents. 
+    Return your summary in JSON format with the following keys:
+    "summary" (str): The summary
+    "keypoint" (str): The keypoint
+    </Requirement>
         """
         try:
             result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)
             print("paragraph:", result)
-            summary = result['summary']
+            summary = markdown(result["summary"])
             Summary.get(node).content = summary
             node.title = f"{node.title}: {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
     elif re.match(r'^S\d+\.SS\d+$', node.get_id()) or re.match(r'^S\d+$', node.get_id()):  # Section/ Subsection
-        chat = Chat()
+        chat = Chat(dedent=True)
         for e in node.children():
             if Summary not in e.attrs:
                 return False
         chat += f"""
-        Please summarize the section of a scientific paper. You will be provide the abstract of the paper and the summary of each paragraph in this section. Return the summary (About 100 words) and a brief describe (About 29 words) of the section in JSON format with the tag "summary" and tag "brief". For both the summary and the brief describe, please start directly with meaningful content and DON'T add meaning less leading words like 'Thi paper tells'/'This paragraph tells':
+        Please summarize the section of a scientific paper. 
     <Abstract>
     {abstract}
     </Abstract>
-    <Paragraphs>
+    <Contents>
     {[Summary.get(e).content for e in node.children() if Summary in e.attrs and Summary.get(e).content != "No summary"]}
-    </Paragraphs>
+    </Contents>
+    <Requirement>
+    You are required to output a summary of the section in the format of bullet points (in markdown). The summary should not be more than 100 words in total.
+    You are also required to output a keypoint of the section for no more than 30 words which could use for a Table of Contents. 
+    Notice that for both the summary and the keypoint describe, please start directly with meaningful content and DON'T add meaning less leading words like 'Thi paper tells'/'This paragraph tells'.
+    Return your summary in JSON format with the following keys:
+    "summary" (str): The summary
+    "keypoint" (str): The keypoint
+    </Requirement>
         """
         try:
             result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)
             print(f"section{node.get_id()}:{result}")
-            summary1 = result['summary']
-            short_summary = result['brief']
+            summary1 = markdown(result["summary"])
+            short_summary = result['keypoint']
             Summary.get(node).content = summary1
             Summary.get(node).short_content = short_summary
         except Exception as e:
@@ -332,7 +348,8 @@ if __name__ == "__main__":
 
     #arxiv_url = "https://arxiv.org/html/2408.05212v1"
 
-    arxiv_url = "https://arxiv.org/html/2408.08463v1"
+    arxiv_url = "https://arxiv.org/html/2410.01672v2"
+    # arxiv_url = "https://arxiv.org/html/2408.08463v1"
 
     high_quality_arxiv_summary = True
 
