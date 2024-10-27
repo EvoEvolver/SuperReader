@@ -164,6 +164,15 @@ def get_paragraph_nodes(subsectionSoup: BeautifulSoup) -> list[ArxivNode]:
             index_para += 1
 
             print("----------")
+        elif e.name == 'section' and 'ltx_subsubsection' in class_:
+            if not re.match(r'^S\d+\.SS\d+\.SSS\d+$', e['id']):
+                continue
+            print(f"section: {e['id']}")
+            # print(section)
+            SubSection = ArxivNode(e, e['id'], "subsection",
+                                   e.find('h4', class_="ltx_title ltx_title_subsubsection").text, "")
+            build_tree(SubSection)
+            children.append(SubSection)
         elif e.name == 'figure':
             # if not re.match(r'^S\d+\.SS\d+\.F\d+$', e['id']) and not re.match(r'alg\d+', e['id']):
             #     continue
@@ -299,7 +308,7 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
             node.title = f"{node.title}: {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
-    elif re.match(r'^S\d+\.SS\d+$', node.get_id()) or re.match(r'^S\d+$', node.get_id()):  # Section/ Subsection
+    elif re.match(r'^S\d+\.SS\d+\.SSS\d+$', node.get_id()) or re.match(r'^S\d+\.SS\d+$', node.get_id()) or re.match(r'^S\d+$', node.get_id()):  # Section/ Subsection
         chat = Chat(dedent=True)
         for e in node.children():
             if Summary not in e.attrs:
