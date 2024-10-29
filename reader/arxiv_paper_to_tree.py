@@ -366,4 +366,4 @@ if __name__ == "__main__":
     abstract = generate_summary_of_abstract(doc)
     node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract),
                              n_workers=20)
-    doc.display(dev_mode=True)
+    doc.display(dev_mode=False)

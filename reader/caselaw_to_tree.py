@@ -2,7 +2,7 @@ import re
 
 from bs4 import Tag
 
-from fibers.data_loader.html_to_tree import url_to_tree, SoupInfo
+from fibers.data_loader.html_to_tree import SoupInfo, html_to_tree
 from fibers.tree import Node
 from reader.reference import set_reference_obj
 
@@ -86,8 +86,8 @@ def merge_small_segment(root: Node):
     SoupInfo.soup_to_content(root)
 
 
-def get_caselaw_tree(url: str) -> Node:
-    doc, soup = url_to_tree(url)
+def get_caselaw_tree(html: str) -> Node:
+    doc, soup = html_to_tree(html)
     doc = doc.children()[0]
     last_first_level = doc
     last_second_level = doc

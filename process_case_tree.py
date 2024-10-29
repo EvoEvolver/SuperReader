@@ -1,6 +1,8 @@
 import os
 from functools import partial
 
+import requests
+
 from fibers.utils.mapping import node_map_with_dependency
 from reader.caselaw_to_tree import get_caselaw_tree
 from reader.sparsify import caselaw_sparse, high_quality_sparse
@@ -13,7 +15,10 @@ if __name__ == "__main__":
     url = "https://scholar.google.com/scholar_case?case=4593667331706526094"
 
     #url = "https://scholar.google.com/scholar_case?case=3381199590391915384"
-    root = get_caselaw_tree(url)
+    browser_headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+    html = requests.get(url, headers=browser_headers).text
+    root = get_caselaw_tree(html)
 
     high_quality_sparse = True
     high_quality_summary = True
