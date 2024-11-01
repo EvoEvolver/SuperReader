@@ -264,17 +264,15 @@ def generate_summary_of_abstract(root: Node):
     for node in root.iter_subtree_with_bfs():
         if node.title == "Abstract":
             chat = Chat()
-            chat += f"""This is an Abstract of a scientific paper, please write a 80 words summary about what this paper about from the summary, and a 20 words brief describe about the content. For both the summary and the brief describe, please start directly with meaningful content and DON'T add meaning less leading words like 'Thi paper tells'/'This paragraph tells'. return the summary in JSON format with the tag "summary", and the brief discribe with tag "brief".
+            chat += f"""This is an Abstract of a scientific paper, please write a 80 words summary about what this paper about from the summary, and a 20 words brief describe about the content. For both the summary and the brief describe, please start directly with meaningful content and DON'T add meaning less leading words like 'Thi paper tells'/'This paragraph tells'. return the summary in JSON format with the tag "summary", and the brief describe with tag "brief".
                 <Abstract>
                 {node.content}
                 </Abstract>
                 """
             try:
-                abstract = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)["summary"]
+                abstract_summary = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)["summary"]
                 short_summary = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)["brief"]
-                Summary.get(node).content = abstract
-                Summary.get(node).short_content = short_summary
-                return abstract
+                return abstract_summary, short_summary
             except Exception as e:
                 abstract = node.content
             return abstract
@@ -363,7 +361,13 @@ if __name__ == "__main__":
     high_quality_arxiv_summary = True
 
     doc = url_to_tree(arxiv_url)
-    abstract = generate_summary_of_abstract(doc)
-    node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract),
+    abstract_summary, short_summary = generate_summary_of_abstract(doc)
+    for node in doc.iter_subtree_with_bfs():
+        if node.title == "Abstract":
+            node.remove_self()
+    node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract_summary),
                              n_workers=20)
+    doc.content = ""
+    Summary.get(doc).content = abstract_summary
+    Summary.get(doc).short_content = short_summary
     doc.display(dev_mode=False)
