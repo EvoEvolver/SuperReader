@@ -100,7 +100,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup) -> list[ArxivNode]:
             print(f"section: {e['id']}")
             # print(section)
             Paragraph = ArxivNode(e, e['id'], "paragraph",
-                                  "paragraph " + str(index_para),
+                                  "¶ "+str(index_para),
                                   '<!DOCTYPE html><meta content=\"text/html; charset=utf-8\" http-equiv=\"content-type\"/>' + e.__str__())
             children.append(Paragraph)
             index_para += 1
@@ -158,7 +158,7 @@ def get_paragraph_nodes(subsectionSoup: BeautifulSoup) -> list[ArxivNode]:
             #     continue
             # print(section)
             Paragraph = ArxivNode(e, e['id'], "paragraph",
-                                  "paragraph " + str(index_para),
+                                  "¶ " + str(index_para),
                                   '<!DOCTYPE html><meta content=\"text/html; charset=utf-8\" http-equiv=\"content-type\"/>' + e.__str__())
             children.append(Paragraph)
             index_para += 1
@@ -281,6 +281,9 @@ def generate_summary_of_abstract(root: Node):
 
 
 def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
+    if node.get_label() == "figure":
+        Summary.get(node).content = None
+        return True
     if 'p' in node.get_id():  # Paragraph
         chat = Chat(dedent=True)
         chat += f"""Providing an abstract of a scientific paper and a specific paragraph from the same paper. Please read both and then summarize the paragraph in the context of the abstract. 
@@ -294,7 +297,7 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     You are required to output a summary of the paragraph in the format of bullet points (in markdown). The summary should not be more than 50 words in total.
     You are also required to output a keypoint for no more than 10 words which could use for a Table of Contents. 
     Return your summary in JSON format with the following keys:
-    "summary" (str): The summary
+    "summary" (str): The summary in markdown, with each bullet point in a new line and starting with a dash.
     "keypoint" (str): The keypoint
     </Requirement>
         """
@@ -311,13 +314,15 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
         for e in node.children():
             if Summary not in e.attrs:
                 return False
+        content_list = [Summary.get(e).content for e in node.children() if Summary in e.attrs and Summary.get(e).content != None]
+        contents = "\n".join(content_list)
         chat += f"""
         Please summarize the section of a scientific paper. 
     <Abstract>
     {abstract}
     </Abstract>
     <Contents>
-    {[Summary.get(e).content for e in node.children() if Summary in e.attrs and Summary.get(e).content != "No summary"]}
+    {contents}
     </Contents>
     <Requirement>
     You are required to output a summary of the section in the format of bullet points (in markdown). The summary should not be more than 100 words in total.
@@ -337,9 +342,9 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
             Summary.get(node).short_content = short_summary
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
-    else:  # Currently no summary for figures
+    else:
         if Summary not in node.attrs:
-            Summary.get(node).content = "No summary"
+            Summary.get(node).content = None
     return True
 
 
@@ -357,15 +362,28 @@ if __name__ == "__main__":
 
     arxiv_url = "https://arxiv.org/html/2410.01672v2"
     # arxiv_url = "https://arxiv.org/html/2408.08463v1"
-    arxiv_url = "https://arxiv.org/html/2410.09290v1"
+    #arxiv_url = "https://arxiv.org/html/2410.09290v1"
 
     high_quality_arxiv_summary = True
 
     doc = url_to_tree(arxiv_url)
     abstract_summary, short_summary = generate_summary_of_abstract(doc)
+
+    for node in doc.iter_subtree_with_bfs():
+        if "section" in node._label:
+            if len(node.children()) == 1:
+                child = node.children()[0]
+                if child._label == "paragraph":
+                    node.content = child.content
+                    child.remove_self()
+        if node._label == "figure":
+            print(node._id)
+
     for node in doc.iter_subtree_with_bfs():
         if node.title == "Abstract":
             node.remove_self()
+            break
+
     node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract_summary),
                              n_workers=20)
     doc.content = ""

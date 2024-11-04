@@ -20,11 +20,12 @@ class Summary(Attr):
         self.short_content = ""
 
     def render(self, rendered):
+        if self.content is None:
+            return
         if len(self.node.content) > 0:
-            #rendered.tools[0]["summary"] = str(self.content)
-            rendered.tabs["summary"] = str(self.content)
-            rendered.tools[1]["content"] = str(self.node.content)
-            del rendered.tabs["content"]
+                rendered.tabs["summary"] = str(self.content)
+                rendered.tools[1]["content"] = str(self.node.content)
+                del rendered.tabs["content"]
         else:
             del rendered.tabs["content"]
             rendered.tabs["summary"] = str(self.content)
