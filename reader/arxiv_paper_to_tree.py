@@ -357,6 +357,7 @@ if __name__ == "__main__":
 
     arxiv_url = "https://arxiv.org/html/2410.01672v2"
     # arxiv_url = "https://arxiv.org/html/2408.08463v1"
+    arxiv_url = "https://arxiv.org/html/2410.09290v1"
 
     high_quality_arxiv_summary = True
 
@@ -370,4 +371,4 @@ if __name__ == "__main__":
     doc.content = ""
     Summary.get(doc).content = abstract_summary
     Summary.get(doc).short_content = short_summary
-    doc.display(dev_mode=False)
+    doc.display(dev_mode=True)
