@@ -1,5 +1,5 @@
 from functools import partial
-
+from markdownify import markdownify
 from markdown import markdown
 from mllm.utils import parallel_map
 
@@ -16,7 +16,6 @@ from bs4 import Tag
 from fibers.utils.mapping import node_map_with_dependency
 
 from fibers.tree import Node
-from fibers.tree.node_attr import Attr
 from reader.summary import Summary
 
 high_quality_arxiv_summary = False
@@ -101,7 +100,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup) -> list[ArxivNode]:
             # print(section)
             Paragraph = ArxivNode(e, e['id'], "paragraph",
                                   "¶ "+str(index_para),
-                                  '<!DOCTYPE html><meta content=\"text/html; charset=utf-8\" http-equiv=\"content-type\"/>' + e.__str__())
+                                   e.__str__())
             children.append(Paragraph)
             index_para += 1
         elif e.name == 'section' and 'ltx_subsection' in class_:
@@ -159,7 +158,7 @@ def get_paragraph_nodes(subsectionSoup: BeautifulSoup) -> list[ArxivNode]:
             # print(section)
             Paragraph = ArxivNode(e, e['id'], "paragraph",
                                   "¶ " + str(index_para),
-                                  '<!DOCTYPE html><meta content=\"text/html; charset=utf-8\" http-equiv=\"content-type\"/>' + e.__str__())
+                                  e.__str__())
             children.append(Paragraph)
             index_para += 1
 
@@ -284,14 +283,14 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     if node.get_label() == "figure":
         Summary.get(node).content = None
         return True
-    if 'p' in node.get_id():  # Paragraph
+    if len(node.children()) == 0:
         chat = Chat(dedent=True)
         chat += f"""Providing an abstract of a scientific paper and a specific paragraph from the same paper. Please read both and then summarize the paragraph in the context of the abstract. 
     <Abstract>
     {abstract}
     </Abstract>
     <Paragraph>
-    {node.content}
+    {markdownify(node.content)}
     </Paragraph>
     <Requirement>
     You are required to output a summary of the paragraph in the format of bullet points (in markdown). The summary should not be more than 50 words in total.
@@ -304,12 +303,14 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
         try:
             result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)
             print("paragraph:", result)
+            if node.content == "":
+                print()
             summary = markdown(result["summary"])
             Summary.get(node).content = summary
             node.title = f"{node.title}: {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
-    elif re.match(r'^S\d+\.SS\d+\.SSS\d+$', node.get_id()) or re.match(r'^S\d+\.SS\d+$', node.get_id()) or re.match(r'^S\d+$', node.get_id()):  # Section/ Subsection
+    elif len(node.children()) > 0:  # Section/ Subsection
         chat = Chat(dedent=True)
         for e in node.children():
             if Summary not in e.attrs:
@@ -329,7 +330,7 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     You are also required to output a keypoint of the section for no more than 30 words which could use for a Table of Contents. 
     Notice that for both the summary and the keypoint describe, please start directly with meaningful content and DON'T add meaning less leading words like 'Thi paper tells'/'This paragraph tells'.
     Return your summary in JSON format with the following keys:
-    "summary" (str): The summary
+    "summary" (str): The summary in markdown, with each bullet point in a new line and starting with a dash.
     "keypoint" (str): The keypoint
     </Requirement>
         """
@@ -340,6 +341,17 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
             short_summary = result['keypoint']
             Summary.get(node).content = summary1
             Summary.get(node).short_content = short_summary
+
+            node_title_summary = []
+            for child in node.children():
+                node_title_summary.append(f"<strong>{child.title}</strong>")
+                if Summary.get(child).short_content:
+                    node_title_summary.append(f"{Summary.get(child).short_content}")
+
+
+            node_content = '\n\n<br/>'.join(node_title_summary)
+            node.content = node_content
+
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
     else:
@@ -363,6 +375,7 @@ if __name__ == "__main__":
     arxiv_url = "https://arxiv.org/html/2410.01672v2"
     # arxiv_url = "https://arxiv.org/html/2408.08463v1"
     #arxiv_url = "https://arxiv.org/html/2410.09290v1"
+    arxiv_url = "https://arxiv.org/html/2307.02477v3"
 
     high_quality_arxiv_summary = True
 
@@ -371,6 +384,8 @@ if __name__ == "__main__":
 
     for node in doc.iter_subtree_with_bfs():
         if "section" in node._label:
+            if len(node.children()) == 0:
+                node.content = node._html_soup.__str__()
             if len(node.children()) == 1:
                 child = node.children()[0]
                 if child._label == "paragraph":
@@ -389,4 +404,4 @@ if __name__ == "__main__":
     doc.content = ""
     Summary.get(doc).content = abstract_summary
     Summary.get(doc).short_content = short_summary
-    doc.display(dev_mode=True)
+    doc.display(dev_mode=False)
