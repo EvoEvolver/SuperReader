@@ -28,10 +28,10 @@ class Relevant(Attr):
 
 def caselaw_sparse(child: Node):
     def expand_contents(node: Node) -> str:
-        if len(node.children()) == 0:
+        if len(node.children) == 0:
             return node.content
         content = ""
-        for i, e in enumerate(node.children()):
+        for i, e in enumerate(node.children):
             content += f"\nsegment id:{i}\n" + expand_contents(e)
         return content
 
@@ -39,13 +39,13 @@ def caselaw_sparse(child: Node):
     last_id = 0
     for node, id in fragments:
         print(node.title, id)
-        node._children = child.children()[last_id:id+1]
+        node._children = child.children[last_id:id+1]
         last_id = id+1
         generate_summary_for_node(node)
     child._children = []
     for node, _ in fragments:
         child.add_child(node)
-    # for c in child.children():
+    # for c in child.children:
     #     chat = Chat()
     #     chat += f"""Providing a segment in a chapter of case law and the keypoints in that chapter, please match this segment with the relevant keypoint, and put the most relevant keypoint at top (don't rank all the keypoints, only choose a few amount all keypoints and then rank them).
     #     Return as JSON format.
@@ -65,7 +65,7 @@ def caselaw_sparse(child: Node):
     #     keypoints_nodes[res[0]].add_child(c)
     # child._children = []
     # for c in keypoints_nodes:
-    #     if len(c.children()) > 0:
+    #     if len(c.children) > 0:
     #         child.add_child(c)
     return True
 

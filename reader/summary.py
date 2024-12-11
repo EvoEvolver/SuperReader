@@ -53,15 +53,15 @@ def generate_summary_for_node(node: Node) -> bool:
             node.title = f"{node.title}: {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
-    elif len(node.children()) > 0:  # Subsection
+    elif len(node.children) > 0:  # Subsection
         chat = Chat()
-        for e in node.children():
+        for e in node.children:
             if Summary not in e.attrs:
                 return False
         chat += f"""
         Providing the summary of each paragraph of a case law in a section. Return the summary (About 3 sentences) of this section in JSON format with the tag "summary":
     <Paragraphs>
-    {[Summary.get(e).content for e in node.children() if Summary in e.attrs and Summary.get(e).content != "No summary"]}
+    {[Summary.get(e).content for e in node.children if Summary in e.attrs and Summary.get(e).content != "No summary"]}
     </Paragraphs>
         """
         try:

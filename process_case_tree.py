@@ -29,9 +29,9 @@ if __name__ == "__main__":
 
     nodes_need_sparse = []
     for child in reversed(list(root.iter_subtree_with_bfs())):
-        if len(child.children()) < 7:  # Only sparse the tree when more than 5 children
+        if len(child.children) < 7:  # Only sparse the tree when more than 5 children
             continue
-        if any(len(c.children()) > 0 for c in child.children()):
+        if any(len(c.children) > 0 for c in child.children):
             continue
         nodes_need_sparse.append(child)
 

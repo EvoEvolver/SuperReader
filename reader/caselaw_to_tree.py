@@ -46,7 +46,7 @@ def merge_blockquote(root: Node):
             node_index = node.index_in_siblings()
             if node_index == 0:
                 continue
-            previous_node = node.parent().children()[node_index - 1]
+            previous_node = node.parent.children[node_index - 1]
             previous_soup = SoupInfo.get(previous_node).soup
             previous_soup.append(soup.blockquote)
             soup.decompose()
@@ -74,7 +74,7 @@ def merge_small_segment(root: Node):
             node_index = node.index_in_siblings()
             if node_index == 0:
                 continue
-            previous_node = node.parent().children()[node_index - 1]
+            previous_node = node.parent.children[node_index - 1]
             previous_soup = SoupInfo.get(previous_node).soup
             if len(previous_soup.text) > too_large_bound:
                 continue
@@ -88,11 +88,11 @@ def merge_small_segment(root: Node):
 
 def get_caselaw_tree(html: str) -> Node:
     doc, soup = html_to_tree(html)
-    doc = doc.children()[0]
+    doc = doc.children[0]
     last_first_level = doc
     last_second_level = doc
     num = 1
-    for child in list(doc.children()):
+    for child in list(doc.children):
         num += 1
         if is_first_level(child):
             last_first_level = child
@@ -105,7 +105,7 @@ def get_caselaw_tree(html: str) -> Node:
     merge_blockquote(doc)
     merge_small_segment(doc)
     for c in doc.iter_subtree_with_bfs():
-        if len(c.children()) == 0:  # Add reference to nodes
+        if len(c.children) == 0:  # Add reference to nodes
             html_string = c.content
 
             pattern = r'name="\[(\d+)\]'
@@ -124,7 +124,7 @@ def get_caselaw_tree(html: str) -> Node:
                             print(t.parent)
                             references.append(t.parent.__str__())
                 set_reference_obj(c, references)
-        elif any("Segment" == cc.title[:7] for cc in c.children()):
-            for i, cc in enumerate([cc for cc in c.children() if "Segment" == cc.title[:7]]):
+        elif any("Segment" == cc.title[:7] for cc in c.children):
+            for i, cc in enumerate([cc for cc in c.children if "Segment" == cc.title[:7]]):
                 cc.title += f"{i+1}"
     return doc
