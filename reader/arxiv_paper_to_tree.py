@@ -1,18 +1,23 @@
 from functools import partial
 from markdownify import markdownify
 from markdown import markdown
-from mllm.utils import parallel_map
+import os, sys
 
+sys.path.append(os.path.abspath("../../FibersNext"))
+sys.path.append(os.path.abspath("../../Forest"))
+sys.path.append(os.path.abspath("../../SuperReader"))
+sys.path.append(os.path.abspath("/app/FibersNext"))
+sys.path.append(os.path.abspath("/app/Forest"))
 from reader.reference import set_reference_obj, construct_related_figures
-from reader.summary import *
 from mllm import Chat
-import os
+
 import re
 from typing import List
 
 import requests
 from bs4 import BeautifulSoup
 from bs4 import Tag
+
 from fibers.utils.mapping import node_map_with_dependency
 
 from fibers.tree import Node
@@ -99,8 +104,8 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup) -> list[ArxivNode]:
             print(f"section: {e['id']}")
             # print(section)
             Paragraph = ArxivNode(e, e['id'], "paragraph",
-                                  "¶ "+str(index_para),
-                                   e.__str__())
+                                  "¶ " + str(index_para),
+                                  e.__str__())
             children.append(Paragraph)
             index_para += 1
         elif e.name == 'section' and 'ltx_subsection' in class_:
@@ -129,7 +134,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup) -> list[ArxivNode]:
                             image_tag['height'] = f"{int(h * (div_max_width / w))}"
                             image_tag['style'] = "object-fit: contain;"
 
-            content = "<FigureBox>"+e.__str__()+"</FigureBox>"
+            content = "<FigureBox>" + e.__str__() + "</FigureBox>"
             Figure = ArxivNode(e, e['id'], "figure", "figure " + str(index_figure), content)
             # Figure = ArxivNode(e, e['id'], "figure", "figure " + str(index_figure), re.sub(r"\"([^\"]+)\.(png|jpg)\"", regrex_str, e.__str__()))
             children.append(Figure)
@@ -188,7 +193,7 @@ def get_paragraph_nodes(subsectionSoup: BeautifulSoup) -> list[ArxivNode]:
                             image_tag['width'] = str(div_max_width)
                             image_tag['height'] = f"{int(h * (div_max_width / w))}"
                             image_tag['style'] = "object-fit: contain;"
-            content = "<FigureBox>"+e.__str__()+"</FigureBox>"
+            content = "<FigureBox>" + e.__str__() + "</FigureBox>"
             Figure = ArxivNode(e, e['id'], "figure", "figure " + str(index_figure), content)
             children.append(Figure)
             index_figure += 1
@@ -226,7 +231,6 @@ def url_to_tree(url: str) -> ArxivNode:
     global arxiv_url
     arxiv_url = url
     html_source = requests.get(url).text
-
 
     # try:
     #     with open("cached_page.html", "r", encoding="utf-8") as f:
@@ -268,7 +272,8 @@ def generate_summary_of_abstract(root: Node):
                 </Abstract>
                 """
             try:
-                abstract_summary = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)["summary"]
+                abstract_summary = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)[
+                    "summary"]
                 short_summary = chat.complete(expensive=high_quality_arxiv_summary, parse="dict", cache=True)["brief"]
                 return abstract_summary, short_summary
             except Exception as e:
@@ -314,7 +319,8 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
         for e in node.children:
             if Summary not in e.attrs:
                 return False
-        content_list = [Summary.get(e).content for e in node.children if Summary in e.attrs and Summary.get(e).content != None]
+        content_list = [Summary.get(e).content for e in node.children if
+                        Summary in e.attrs and Summary.get(e).content != None]
         contents = "\n".join(content_list)
         chat += f"""
         Please summarize the section of a scientific paper. 
@@ -347,7 +353,6 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
                 if Summary.get(child).short_content:
                     node_title_summary.append(f"{Summary.get(child).short_content}")
 
-
             node_content = '\n\n<br/>'.join(node_title_summary)
             node.content = node_content
 
@@ -359,8 +364,43 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     return True
 
 
-if __name__ == "__main__":
+
+
+
+def generate_tree_with_url(url: str, host: str) -> str:
     os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
+    arxiv_url = url  # "https://arxiv.org/html/2407.12105v2"
+    doc = url_to_tree(arxiv_url)
+    abstract_summary, short_summary = generate_summary_of_abstract(doc)
+
+    for node in doc.iter_subtree_with_bfs():
+        if "section" in node._label:
+            if len(node.children) == 0:
+                node.content = node._html_soup.__str__()
+            if len(node.children) == 1:
+                child = node.children[0]
+                if child._label == "paragraph":
+                    node.content = child.content
+                    child.remove_self()
+        if node._label == "figure":
+            print(node._id)
+
+    for node in doc.iter_subtree_with_bfs():
+        if node.title == "Abstract":
+            node.remove_self()
+            break
+
+    node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract_summary),
+                             n_workers=20)
+    construct_related_figures(doc)
+    doc.content = ""
+    Summary.get(doc).content = abstract_summary
+    Summary.get(doc).short_content = short_summary
+    return doc.display(dev_mode=False, interactive=False, host=host)
+
+#
+if __name__ == "__main__":
+
     # arxiv_url = "https://arxiv.org/html/2401.11314v2"
     # arxiv_url = "https://arxiv.org/html/2404.04326v1"
     # arxiv_url = "https://arxiv.org/html/2406.07003v1"
@@ -369,13 +409,13 @@ if __name__ == "__main__":
 
     # arxiv_url = "https://arxiv.org/html/2408.06361v1"
 
-    #arxiv_url = "https://arxiv.org/html/2408.05212v1"
+    # arxiv_url = "https://arxiv.org/html/2408.05212v1"
 
-    #arxiv_url = "https://arxiv.org/html/2410.01672v2"
+    # arxiv_url = "https://arxiv.org/html/2410.01672v2"
     arxiv_url = "https://arxiv.org/html/2408.08463v1"
-    #arxiv_url = "https://arxiv.org/html/2410.09290v1"
-    #arxiv_url = "https://arxiv.org/html/2307.02477v3"
-    arxiv_url = "https://arxiv.org/html/2407.12105v2"
+    # arxiv_url = "https://arxiv.org/html/2410.09290v1"
+    # arxiv_url = "https://arxiv.org/html/2307.02477v3"
+    arxiv_url = "dee"
 
     high_quality_arxiv_summary = True
 
@@ -405,4 +445,4 @@ if __name__ == "__main__":
     doc.content = ""
     Summary.get(doc).content = abstract_summary
     Summary.get(doc).short_content = short_summary
-    doc.display(dev_mode=True)
+    doc.display(dev_mode=False, interactive=True)
