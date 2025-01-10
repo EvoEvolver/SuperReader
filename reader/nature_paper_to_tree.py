@@ -93,7 +93,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
     global arxiv_url
     children = []
     index_para = 1
-    # index_figure = 1
+    index_figure = 1
     is_leading = True
     temp_parent = None
     subsection_title = None
@@ -102,12 +102,17 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
         if not isinstance(e, Tag):
             continue
         print(i, e.name, label)
-        if is_leading and (e.name=='p' or e.name=='div'):
+        if is_leading and e.name=='p':
             Paragraph = NatureNode(e, "para", "paragraph",
                                    "¶ " + str(index_para),
                                    e.__str__())
             children.append(Paragraph)
             index_para += 1
+        elif e.name == 'div' and e.get('data-container-section') == 'figure':
+            Figure = NatureNode(e, "figure", "figure", "¶ Figure " + str(index_figure),
+                                   e.__str__())
+            children.append(Figure)
+            index_figure += 1
         elif (e.name == 'h3' and label == 'section') or (e.name=='h4' and label == 'subsection'):
             if temp_parent:
                 SubSection = NatureNode(temp_parent, "subsec", "subsection",
@@ -157,59 +162,6 @@ def remove_tag(html_str, tag):
     import re
     pattern = rf'<{tag}[^>]*>.*?</{tag}>'
     return re.sub(pattern, '', html_str)
-
-#
-# def get_paragraph_nodes(subsectionSoup: BeautifulSoup) -> list[NatureNode]:
-#     children = []
-#     index_para = 1
-#     index_figure = 1
-#     for i, e in enumerate(subsectionSoup.children):
-#         if not isinstance(e, Tag):
-#             continue
-#         class_ = e.get('class')
-#         print(i, e.name, class_)
-#         if e.name == 'div' and ('ltx_para' in class_ or 'ltx_theorem' in class_):
-#             # if not re.match(r'^S\d+\.SS\d+\.p.$', e['id']):
-#             #     continue
-#             # print(section)
-#             Paragraph = NatureNode(e, e['id'], "paragraph",
-#                                    "¶ " + str(index_para),
-#                                    e.__str__())
-#             children.append(Paragraph)
-#             index_para += 1
-#
-#             print("----------")
-#         elif e.name == 'section' and 'ltx_subsubsection' in class_:
-#             if not re.match(r'^S\d+\.SS\d+\.SSS\d+$', e['id']):
-#                 continue
-#             print(f"section: {e['id']}")
-#             # print(section)
-#             SubSection = NatureNode(e, e['id'], "subsection",
-#                                     e.find('h4', class_="ltx_title ltx_title_subsubsection").text, "")
-#             build_tree(SubSection)
-#             children.append(SubSection)
-#         elif e.name == 'figure':
-#             # if not re.match(r'^S\d+\.SS\d+\.F\d+$', e['id']) and not re.match(r'alg\d+', e['id']):
-#             #     continue
-#             image_tags = e.find_all('img', class_='ltx_graphics', recursive=True)
-#             for image_tag in image_tags:
-#                 if image_tag is not None and isinstance(image_tag, Tag):
-#                     if 'src' in image_tag.attrs:
-#                         image_tag['src'] = arxiv_url + '/' + image_tag['src']
-#                     if 'width' in image_tag.attrs and 'height' in image_tag.attrs:
-#                         # Make sure the image fit in the window
-#                         w, h = int(image_tag['width']), int(image_tag['height'])
-#                         div_max_width = 500
-#                         if w > div_max_width:
-#                             image_tag['width'] = str(div_max_width)
-#                             image_tag['height'] = f"{int(h * (div_max_width / w))}"
-#                             image_tag['style'] = "object-fit: contain;"
-#             content = "<FigureBox>" + e.__str__() + "</FigureBox>"
-#             Figure = NatureNode(e, e['id'], "figure", "figure " + str(index_figure), content)
-#             children.append(Figure)
-#             index_figure += 1
-#
-#     return children
 
 
 def build_tree(parent: NatureNode):
@@ -454,4 +406,4 @@ if __name__ == "__main__":
     doc.content = ""
     Summary.get(doc).content = abstract_summary
     Summary.get(doc).short_content = short_summary
-    doc.display(dev_mode=True, interactive=True)
+    doc.display(dev_mode=False, interactive=True)
