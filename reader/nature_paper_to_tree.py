@@ -98,17 +98,27 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
     temp_parent = None
     subsection_title = None
     children_elements = list(sectionSoup.children)
+    prev_para = None
     for i, e in enumerate(children_elements):
         if not isinstance(e, Tag):
             continue
         print(i, e.name, label)
-        if is_leading and e.name=='p':
+        if e.name == 'ol' and prev_para:
+            prev_para.content += e.__str__()
+        elif is_leading and (e.name=='p'):
             Paragraph = NatureNode(e, "para", "paragraph",
                                    "¶ " + str(index_para),
                                    e.__str__())
+            prev_para = Paragraph
             children.append(Paragraph)
             index_para += 1
         elif e.name == 'div' and e.get('data-container-section') == 'figure':
+            if temp_parent:
+                SubSection = NatureNode(temp_parent, "subsec", "subsection",
+                                        subsection_title, "")
+                build_tree(SubSection)
+                children.append(SubSection)
+                temp_parent = None
             Figure = NatureNode(e, "figure", "figure", "¶ Figure " + str(index_figure),
                                    e.__str__())
             children.append(Figure)
@@ -366,7 +376,6 @@ def generate_tree_with_url(url: str, host: str) -> str:
                              n_workers=20)
     construct_related_figures(doc)
     doc.content = ""
-    Summary.get(doc).content = abstract_summary
     Summary.get(doc).short_content = short_summary
     return doc.display(dev_mode=False, interactive=False, host=host)
 
@@ -374,7 +383,7 @@ def generate_tree_with_url(url: str, host: str) -> str:
 #
 if __name__ == "__main__":
     os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
-    nature_url = "https://link.springer.com/article/10.1007/s44336-024-00009-2"
+    nature_url = "https://link.springer.com/article/10.1007/s10462-024-10974-1"
 
     high_quality_arxiv_summary = True
 
@@ -395,15 +404,15 @@ if __name__ == "__main__":
         if node._label == "figure":
             print(node._id)
 
+    abstract = ""
     for node in doc.iter_subtree_with_bfs():
         if node.title == "Abstract":
+            abstract = node.content
             node.remove_self()
             break
 
     node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract_summary),
                              n_workers=20)
+    doc.content = abstract
     construct_related_figures(doc)
-    doc.content = ""
-    Summary.get(doc).content = abstract_summary
-    Summary.get(doc).short_content = short_summary
     doc.display(dev_mode=False, interactive=True)
