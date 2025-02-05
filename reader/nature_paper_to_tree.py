@@ -219,7 +219,7 @@ def url_to_tree(url: str) -> NatureNode:
     head = NatureNode(soup, "root", "root", "", "")
     build_tree(head)
 
-    RefSoup = soup.find('ol', class_="c-article-references", recursive=True)
+    RefSoup = soup.find('ul', class_="c-article-references", recursive=True)
     # Rematch references
     if not RefSoup:
         return head
@@ -230,8 +230,23 @@ def url_to_tree(url: str) -> NatureNode:
         # extract reference number
         extracted_numbers = [match for match in matches]
         print("Extracted Numbers:", extracted_numbers)
-        replacement_pattern = r'href="[^"]*#ref-CR\d+"'
-        c.content = re.sub(replacement_pattern, "style='color: cyan;'", html_string)
+        # replacement_pattern = r'href="[^"]*#ref-CR\d+"'
+        # c.content = re.sub(replacement_pattern, "style='color: cyan;'", html_string)
+
+        pattern = r'<a\b[^>]*?href="[^"]*#ref-CR\d+"[^>]*>.*?</a>'
+        def add_tooltip_wrapper(match):
+            full_tag = match.group(0)
+            title_match = re.search(r'title="([^"]*)"', full_tag)
+            tooltip_title = title_match.group(1) if title_match else "Reference"
+            modified_tag = re.sub(
+                r'\shref="[^"]*#ref-CR\d+"',
+                ' style="color: cyan;"',
+                full_tag
+            )
+
+            return f'<Tooltip title="{tooltip_title}">{modified_tag}</Tooltip>'
+        c.content = re.sub(pattern, add_tooltip_wrapper, html_string, flags=re.DOTALL)
+        print("c.content:", c.content)
         if matches:
             references = []
             for number in matches:
@@ -415,4 +430,4 @@ if __name__ == "__main__":
                              n_workers=20)
     doc.content = abstract
     construct_related_figures(doc)
-    doc.display(dev_mode=False, interactive=True)
+    doc.display(dev_mode=True, interactive=True)
