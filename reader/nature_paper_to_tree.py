@@ -150,6 +150,8 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
 
             Figure = NatureNode(e, "figure", "figure", "¶ figure " + str(index_figure),
                                 img_html)
+            figId = e.find('img', attrs={'aria-describedby': True})
+            sec_dict[figId['aria-describedby']] = Figure.node_id
             children.append(Figure)
             index_figure += 1
         elif (e.name == 'h3' and label == 'section') or (e.name=='h4' and label == 'subsection'):
@@ -290,7 +292,7 @@ def url_to_tree(url: str) -> NatureNode:
             set_reference_obj(c, references)
     for n in head.iter_subtree_with_bfs():
 
-        anchors = n.get_soup().find_all('a', attrs={'data-track-action': 'section anchor'})
+        anchors = n.get_soup().find_all('a', attrs={'data-track-action': ['section anchor', 'figure anchor']})
         for a in anchors:
             href = a.get('href', '')
             if '#' in href:
