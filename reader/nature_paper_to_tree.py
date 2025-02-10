@@ -83,12 +83,16 @@ def get_section_nodes(rootSoup: BeautifulSoup) -> list[NatureNode]:
         print(f"section: {section.get('data-title')}")
         Section = NatureNode(section.find('div', class_='c-article-section__content'), section.get('data-title'), "section",
                              section.get('data-title'), "")
+        secId = section.find('h2')
+        sec_dict[secId['id']] = Section.node_id
         build_tree(Section)
         children.append(Section)
         print("----------")
     return children
 
-
+sec_dict = {}
+from urllib.parse import urljoin
+base_url = 'https://link.springer.com'
 def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
     global arxiv_url
     children = []
@@ -97,6 +101,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
     is_leading = True
     temp_parent = None
     subsection_title = None
+    subsection_id = None
     children_elements = list(sectionSoup.children)
     prev_para = None
     for i, e in enumerate(children_elements):
@@ -116,17 +121,42 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
             if temp_parent:
                 SubSection = NatureNode(temp_parent, "subsec", "subsection",
                                         subsection_title, "")
+                sec_dict[subsection_id] = SubSection.node_id
                 build_tree(SubSection)
                 children.append(SubSection)
                 temp_parent = None
-            Figure = NatureNode(e, "figure", "figure", "¶ Figure " + str(index_figure),
-                                   e.__str__())
+            a_tag = e.find('a', class_="c-article-section__figure-link")
+            if a_tag and a_tag.has_attr('href'):
+                relative_url = a_tag['href']
+                full_url = urljoin(base_url, relative_url)
+                print('url:', full_url)
+                try:
+                    response = requests.get(full_url)
+                    if response.status_code == 200:
+                        fetched_html = response.text
+                        soup = BeautifulSoup(fetched_html, 'html.parser')
+                        img_tag = soup.find('article')
+                        print("img:", img_tag)
+                        if img_tag:
+                            img_html = str(img_tag)
+                        else:
+                            img_html = e.__str__()
+                    else:
+                        img_html = e.__str__()
+                except Exception as ex:
+                    img_html = e.__str__()
+            else:
+                img_html = e.__str__()
+
+            Figure = NatureNode(e, "figure", "figure", "¶ figure " + str(index_figure),
+                                img_html)
             children.append(Figure)
             index_figure += 1
         elif (e.name == 'h3' and label == 'section') or (e.name=='h4' and label == 'subsection'):
             if temp_parent:
                 SubSection = NatureNode(temp_parent, "subsec", "subsection",
                                         subsection_title, "")
+                sec_dict[subsection_id] = SubSection.node_id
                 build_tree(SubSection)
                 children.append(SubSection)
 
@@ -134,6 +164,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
             soup = BeautifulSoup("", "html.parser")
             temp_parent = soup.new_tag("div")
             subsection_title = e.get_text(strip=True).strip()
+            subsection_id = e['id']
 
 
             print("----------")
@@ -143,6 +174,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label) -> list[NatureNode]:
     if temp_parent:
         SubSection = NatureNode(temp_parent, "subsec", "subsection",
                                 subsection_title, "")
+        sec_dict[subsection_id] = SubSection.node_id
         build_tree(SubSection)
         children.append(SubSection)
         # elif e.name == 'figure':
@@ -256,6 +288,29 @@ def url_to_tree(url: str) -> NatureNode:
                 # ref_content = RefSoup.find('li', class_='ltx_bibitem', recursive=True, id=f'bib.bib{number}')
                 references.append(f'<a style=\'color: cyan;\'>{number}.</a>{ref_text.__str__()}')
             set_reference_obj(c, references)
+    for n in head.iter_subtree_with_bfs():
+
+        anchors = n.get_soup().find_all('a', attrs={'data-track-action': 'section anchor'})
+        for a in anchors:
+            href = a.get('href', '')
+            if '#' in href:
+                anchor_key = href.split('#')[-1]
+            else:
+                continue
+
+            link_text = a.get_text(strip=True)
+
+            node_nav = soup.new_tag('NodeNavigator')
+            print(sec_dict)
+            node_nav['nodeId'] = sec_dict[anchor_key] if anchor_key in sec_dict else '0'
+
+            new_a = soup.new_tag('a')
+            new_a.string = link_text
+            node_nav.append(new_a)
+            print('replaced', node_nav.__str__())
+
+            a.replace_with(node_nav)
+        n.content = n.get_soup().__str__()
 
     return head
 
@@ -430,4 +485,5 @@ if __name__ == "__main__":
                              n_workers=20)
     doc.content = abstract
     construct_related_figures(doc)
+    print(sec_dict)
     doc.display(dev_mode=True, interactive=True)
