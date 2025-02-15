@@ -1,4 +1,6 @@
 from functools import partial
+
+import mllm.config
 from markdownify import markdownify
 from markdown import markdown
 import os, sys
@@ -451,17 +453,11 @@ def generate_tree_with_url(url: str, host: str) -> str:
     Summary.get(doc).short_content = short_summary
     return doc.display(dev_mode=False, interactive=False, host=host)
 
+high_quality_arxiv_summary = True
 
-#
-if __name__ == "__main__":
-    os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
-    nature_url = "https://link.springer.com/article/10.1007/s10462-024-10974-1"
+def run_nature_paper_to_tree(url: str):
 
-    high_quality_arxiv_summary = True
-
-    doc = url_to_tree(nature_url)
-
-
+    doc = url_to_tree(url)
     abstract_summary, short_summary = generate_summary_of_abstract(doc)
 
     for node in doc.iter_subtree_with_bfs():
@@ -483,9 +479,19 @@ if __name__ == "__main__":
             node.remove_self()
             break
 
-    node_map_with_dependency(doc.iter_subtree_with_bfs(), partial(generate_summary_for_node, abstract=abstract_summary),
+    node_map_with_dependency(doc.iter_subtree_with_bfs(),
+                             partial(generate_summary_for_node,
+                                     abstract=abstract_summary),
                              n_workers=20)
     doc.content = abstract
     construct_related_figures(doc)
-    print(sec_dict)
-    doc.display(dev_mode=True, interactive=True)
+    return doc
+
+
+if __name__ == "__main__":
+    mllm.config.default_models.expensive = "gpt-4o"
+    os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
+    nature_url = "https://link.springer.com/article/10.1007/s10462-024-10974-1"
+
+    doc = run_nature_paper_to_tree(nature_url)
+    doc.display(interactive=True, host="localhost:39999")
