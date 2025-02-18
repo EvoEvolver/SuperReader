@@ -490,8 +490,6 @@ def run_nature_paper_to_tree(url: str):
 
 if __name__ == "__main__":
     mllm.config.default_models.expensive = "gpt-4o"
-    os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
     nature_url = "https://link.springer.com/article/10.1007/s10462-024-10974-1"
-
     doc = run_nature_paper_to_tree(nature_url)
-    doc.display(interactive=True, host="localhost:39999")
+    doc.display(dev_mode=True)
