@@ -1,9 +1,18 @@
+import os
 import subprocess
 import time
 
+import litellm
 import requests
 import streamlit as st
 import openai
+
+from fibers.gui.forest_connector.forest_connector import send_tree_to_backend
+from fibers.gui.renderer import Renderer
+from reader.nature_paper_to_tree import run_nature_paper_to_tree
+
+reader_host = os.environ.get("READER_HOST", "localhost")
+reader_port = 29999
 
 def check_openai_key(api_key: str) -> bool:
     openai.api_key = api_key
@@ -12,11 +21,6 @@ def check_openai_key(api_key: str) -> bool:
         return True
     except Exception as e:
         return False
-
-def available_port(host="localhost") -> int:
-    for i in range(40000, 50000):
-        if not check_alive(i, host):
-            return i
 
 def check_alive(port: int, host: str) -> bool:
     # send message to host:port/alive
@@ -27,15 +31,12 @@ def check_alive(port: int, host: str) -> bool:
     except Exception as e:
         return False
 
-def start_new_service(link, api_key, host="localhost"):
-    port = available_port(host)
-    subprocess.Popen(["python", "web_service.py", link, str(port), api_key])
-    for i in range(600):
-        if check_alive(port, host):
-            return port
-        else:
-            time.sleep(1)
-    raise Exception("Tree service not started in time")
+def run(link, api_key):
+    litellm.openai_key = api_key
+    doc = run_nature_paper_to_tree(link)
+    tree_data = Renderer().render_to_json(doc)
+    send_tree_to_backend(reader_host, reader_port, tree_data, doc.node_id)
+    return doc.node_id
 
 st.session_state["links"] = {}
 
@@ -61,11 +62,11 @@ if button:
         if not check_openai_key(api_key):
             st.write("Invalid OpenAI API key")
             st.stop()
-        st.write("Running...")
         host = "localhost"
-        port = start_new_service(link, api_key)
+        node_id = run(link, api_key)
+        st.write("Running...")
         st.write("Done!")
-        tree_link = f"http://{host}:{port}/"
+        tree_link = f"http://{reader_host}:{reader_port}/?id={node_id}"
         st.link_button("Open the tree", tree_link)
         st.session_state["links"][link] = tree_link
 
