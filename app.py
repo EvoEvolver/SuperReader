@@ -1,5 +1,6 @@
 import os
 import litellm
+import mllm
 import streamlit as st
 import openai
 
@@ -19,6 +20,7 @@ def check_openai_key(api_key: str) -> bool:
         return False
 
 def run(link, api_key):
+    mllm.config.default_models.expensive = "gpt-4o"
     litellm.openai_key = api_key
     doc = run_nature_paper_to_tree(link)
     tree_data = Renderer().render_to_json(doc)
