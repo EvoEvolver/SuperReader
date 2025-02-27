@@ -222,6 +222,8 @@ def url_to_tree(url: str) -> NatureNode:
     build_tree(head, sec_dict)
 
     for n in head.iter_subtree_with_bfs():
+        if len(n.children) > 0:
+            continue
         anchors = n.get_soup().find_all('a', attrs={
             'data-track-action': ['section anchor', 'figure anchor']})
         for a in anchors:
@@ -247,7 +249,7 @@ def url_to_tree(url: str) -> NatureNode:
     # Rematch references
     if not RefSoup:
         return head
-    return head
+    return head, soup
 
 
 def generate_summary_of_abstract(root: Node):
@@ -359,34 +361,33 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
 high_quality_arxiv_summary = True
 
 
-def adapt_tree_to_reader(head: Node):
-    for c in head.iter_subtree_with_bfs():
-        html_string = c.content
-        pattern = r'href="[^"]*#ref-CR(\d+)"'
-        matches = re.findall(pattern, html_string)
-        # extract reference number
-        extracted_numbers = [match for match in matches]
-        #print("Extracted Numbers:", extracted_numbers)
+def adapt_tree_to_reader(head: Node, doc_soup):
 
-        pattern = r'<a\b[^>]*?href="[^"]*#ref-CR\d+"[^>]*>.*?</a>'
+    for node in head.iter_subtree_with_bfs():
+        if len(node.children) > 0:
+            continue
+        node_soup = node.get_soup()
+        # find all the <a> with href containing #ref-CR
+        anchors = node_soup.find_all('a', href=re.compile(r'#ref-CR'))
 
-        def add_tooltip_wrapper(match):
-            full_tag = match.group(0)
-            title_match = re.search(r'title="([^"]*)"', full_tag)
-            tooltip_title = title_match.group(1) if title_match else "Reference"
-            modified_tag = re.sub(
-                r'\shref="[^"]*#ref-CR\d+"',
-                ' style="color: cyan;"',
-                full_tag
-            )
-            return f'<Tooltip title="{tooltip_title}"><Box component="span">{modified_tag}</Box></Tooltip>'
+        for anchor in anchors:
+            tooltip_title = anchor.get('title', 'Reference')
+            anchor['style'] = 'color: cyan;'
+            del anchor['href']
 
-        c.content = re.sub(pattern, add_tooltip_wrapper, html_string, flags=re.DOTALL)
-        #c._html_soup = BeautifulSoup(c.content, "lxml-xml")
+            tooltip = doc_soup.new_tag('Tooltip', title=tooltip_title)
+            box = doc_soup.new_tag('Box', component='span')
+
+            anchor.wrap(box)
+            box.wrap(tooltip)
+
+        node.content = node_soup.__str__()
+
+
 
 
 def run_nature_paper_to_tree(url: str):
-    doc = url_to_tree(url)
+    doc, doc_soup = url_to_tree(url)
     abstract_summary, short_summary = generate_summary_of_abstract(doc)
 
     for node in doc.iter_subtree_with_bfs():
@@ -412,7 +413,7 @@ def run_nature_paper_to_tree(url: str):
                              partial(generate_summary_for_node,
                                      abstract=abstract_summary),
                              n_workers=20)
-    adapt_tree_to_reader(doc)
+    adapt_tree_to_reader(doc, doc_soup)
     doc.content = abstract
     construct_related_figures(doc)
     return doc
