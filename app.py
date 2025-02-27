@@ -1,9 +1,5 @@
 import os
-import subprocess
-import time
-
 import litellm
-import requests
 import streamlit as st
 import openai
 
@@ -11,7 +7,7 @@ from fibers.gui.forest_connector.forest_connector import send_tree_to_backend
 from fibers.gui.renderer import Renderer
 from reader.nature_paper_to_tree import run_nature_paper_to_tree
 
-reader_host = os.environ.get("READER_HOST", "localhost")
+reader_host = os.environ.get("READER_HOST", "0.0.0.0")
 reader_port = 29999
 
 def check_openai_key(api_key: str) -> bool:
@@ -19,15 +15,6 @@ def check_openai_key(api_key: str) -> bool:
     try:
         openai.models.list()
         return True
-    except Exception as e:
-        return False
-
-def check_alive(port: int, host: str) -> bool:
-    # send message to host:port/alive
-    url = f"http://{host}:{port}/alive"
-    try:
-        response = requests.get(url)
-        return response.status_code == 200 or response.status_code == 404
     except Exception as e:
         return False
 
@@ -62,7 +49,7 @@ if button:
         if not check_openai_key(api_key):
             st.write("Invalid OpenAI API key")
             st.stop()
-        host = "localhost"
+        host = "0.0.0.0"
         node_id = run(link, api_key)
         st.write("Running...")
         st.write("Done!")

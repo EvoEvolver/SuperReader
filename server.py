@@ -1,11 +1,11 @@
 import os
-
 from fibers.tree.node import ForestConnector
-reader_host = os.environ.get("READER_HOST", "localhost")
+
+reader_host = os.environ.get("READER_HOST", "0.0.0.0")
 reader_port = 29999
 
 
-def start_forest_server(host="localhost"):
+def start_forest_server(host="0.0.0.0"):
     forest_connector = ForestConnector(dev_mode=False,
                                        interactive_mode=True, host=host)
     print("Starting server at ", host)
