@@ -243,6 +243,15 @@ def url_to_tree(url: str) -> NatureNode:
             node_nav.append(new_a)
             a.replace_with(node_nav)
 
+        figure_a = n.get_soup().find_all('a', attrs={"data-test": "img-link"})
+        for a in figure_a:
+            del a["href"]
+            figure_box = soup.new_tag('FigureBox')
+            # put the class=c-article-section__figure-content tag into the figure box
+            figure_box.append(a.find('picture'))
+            a.replace_with(figure_box)
+
+
         n.content = n.get_soup().__str__()
 
     RefSoup = soup.find('ul', class_="c-article-references", recursive=True)
