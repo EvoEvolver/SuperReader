@@ -7,7 +7,7 @@ from fibers.gui.forest_connector.forest_connector import send_tree_to_backend
 from fibers.gui.renderer import Renderer
 from reader.nature_paper_to_tree import run_nature_paper_to_tree
 
-reader_host = os.environ.get("READER_HOST", "0.0.0.0")
+reader_host = os.environ.get("READER_HOST", "http://0.0.0.0:29999")
 reader_port = 29999
 
 def check_openai_key(api_key: str) -> bool:
@@ -53,7 +53,7 @@ if button:
         node_id = run(link, api_key)
         st.write("Running...")
         st.write("Done!")
-        tree_link = f"http://{reader_host}:{reader_port}/?id={node_id}"
+        tree_link = f"{reader_host}/?id={node_id}"
         st.link_button("Open the tree", tree_link)
         st.session_state["links"][link] = tree_link
 

@@ -1,5 +1,3 @@
-import os
-
 from fibers.gui.forest_connector.forest_connector import send_tree_to_backend
 from fibers.gui.renderer import Renderer
 
