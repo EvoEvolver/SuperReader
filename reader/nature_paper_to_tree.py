@@ -247,10 +247,13 @@ def url_to_tree(url: str) -> NatureNode:
         for a in figure_a:
             del a["href"]
             figure_box = soup.new_tag('FigureBox')
-            # put the class=c-article-section__figure-content tag into the figure box
-            figure_box.append(a.find('picture'))
+            figure_box.append(a.find('img'))
             a.replace_with(figure_box)
 
+        link_a = n.get_soup().find_all('a', attrs={"class": "c-article__pill-button"})
+        # remove the links element
+        for a in link_a:
+            a.decompose()
 
         n.content = n.get_soup().__str__()
 
@@ -273,12 +276,12 @@ def generate_summary_of_abstract(root: Node):
             try:
 
                 abstract_summary = \
-                chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
-                              cache=True)[
-                    "summary"]
+                    chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
+                                  cache=True)[
+                        "summary"]
                 short_summary = \
-                chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
-                              cache=True)["brief"]
+                    chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
+                                  cache=True)["brief"]
 
                 return abstract_summary, short_summary
             except Exception as e:
@@ -371,7 +374,6 @@ high_quality_arxiv_summary = True
 
 
 def adapt_tree_to_reader(head: Node, doc_soup):
-
     for node in head.iter_subtree_with_bfs():
         if len(node.children) > 0:
             continue
@@ -391,8 +393,6 @@ def adapt_tree_to_reader(head: Node, doc_soup):
             box.wrap(tooltip)
 
         node.content = node_soup.__str__()
-
-
 
 
 def run_nature_paper_to_tree(url: str):
