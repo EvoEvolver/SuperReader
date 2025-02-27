@@ -22,7 +22,7 @@ def run(link, api_key):
     litellm.openai_key = api_key
     doc = run_nature_paper_to_tree(link)
     tree_data = Renderer().render_to_json(doc)
-    send_tree_to_backend(reader_host, reader_port, tree_data, doc.node_id)
+    send_tree_to_backend("0.0.0.0", reader_port, tree_data, doc.node_id)
     return doc.node_id
 
 st.session_state["links"] = {}
