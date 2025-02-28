@@ -1,3 +1,4 @@
+import html
 from functools import partial
 
 import mllm.config
@@ -55,6 +56,11 @@ def pre_process_html_tree(soup: BeautifulSoup):
         # remove all javascript and stylesheet code
         script.decompose()
 
+    # replace { by &#123; and } by &#125; in all the text
+    for element in soup.find_all(text=True):
+        if '{' in element or '}' in element:
+            updated_text = str(element.string).replace('{', '&lbrace;').replace('}', '&rbrace;')
+            element.replace_with(updated_text)
 
 def get_abstract_node(rootSoup: BeautifulSoup) -> NatureNode:
     source = rootSoup.find('section', attrs={
