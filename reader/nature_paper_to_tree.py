@@ -266,7 +266,7 @@ def url_to_tree(url: str) -> NatureNode:
     RefSoup = soup.find('ul', class_="c-article-references", recursive=True)
     # Rematch references
     if not RefSoup:
-        return head
+        return head, soup
     return head, soup
 
 
@@ -436,6 +436,6 @@ def run_nature_paper_to_tree(url: str):
 
 if __name__ == "__main__":
     mllm.config.default_models.expensive = "gpt-4o"
-    nature_url = "https://link.springer.com/article/10.1007/s10462-024-10974-1"
+    nature_url = "https://www.nature.com/articles/ncomms5213"
     doc = run_nature_paper_to_tree(nature_url)
     doc.display(dev_mode=True)
