@@ -404,7 +404,14 @@ def adapt_tree_to_reader(head: Node, doc_soup):
             anchor.wrap(box)
             box.wrap(tooltip)
 
-        node.content = node_soup.__str__()
+        #node.content = node_soup.__str__()
+
+
+def complete_relative_links(soup, base_url: str):
+    for a in soup.find_all('a', href=True):
+        if a['href'].startswith('/'):
+            a['href'] = urljoin(base_url, a['href'])
+            a['target'] = '_blank'
 
 
 def run_nature_paper_to_tree(url: str):
@@ -437,6 +444,13 @@ def run_nature_paper_to_tree(url: str):
     adapt_tree_to_reader(doc, doc_soup)
     doc.content = abstract
     construct_related_figures(doc)
+
+    complete_relative_links(doc_soup, url)
+
+    for node in doc.iter_subtree_with_bfs():
+        if len(node.children) > 0:
+            continue
+        node.content = node.get_soup().__str__()
     return doc
 
 
