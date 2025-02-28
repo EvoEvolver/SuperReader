@@ -68,13 +68,15 @@ def get_abstract_node(rootSoup: BeautifulSoup) -> NatureNode:
 def get_section_nodes(rootSoup: BeautifulSoup, sec_dict) -> list[NatureNode]:
     children = []
     mainContent = rootSoup.find('div', class_='main-content')
+    section_index = 1
     for section in mainContent.children:
         if not isinstance(section, Tag):
             continue
         print(f"section: {section.get('data-title')}")
         Section = NatureNode(section.find('div', class_='c-article-section__content'),
                              section.get('data-title'), "section",
-                             section.get('data-title'), "")
+                             str(section_index) + "." +  section.get('data-title'), "")
+        section_index += 1
         secId = section.find('h2')
         sec_dict[secId['id']] = Section.node_id
         build_tree(Section, sec_dict)
@@ -106,7 +108,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
             prev_para.content += e.__str__()
         elif is_leading and (e.name == 'p'):
             Paragraph = NatureNode(e, "para", "paragraph",
-                                   "¶ " + str(index_para),
+                                   "",
                                    e.__str__())
             prev_para = Paragraph
             children.append(Paragraph)
@@ -142,10 +144,14 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
             else:
                 img_html = e.__str__()
 
-            Figure = NatureNode(e, "figure", "figure", "¶ figure " + str(index_figure),
+            figure_caption = e.find('b', attrs={'data-test': "figure-caption-text"}).text
+            Figure = NatureNode(e, "figure", "figure", figure_caption,
                                 img_html)
-            figId = e.find('img', attrs={'aria-describedby': True})
-            sec_dict[figId['aria-describedby']] = Figure.node_id
+            img = e.find('img', attrs={'aria-describedby': True})
+            del img["width"]
+            del img["height"]
+            img["style"] = "max-width: 100%;"
+            sec_dict[img['aria-describedby']] = Figure.node_id
             children.append(Figure)
             index_figure += 1
         elif (e.name == 'h3' and label == 'section') or (
@@ -317,7 +323,7 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
                                    cache=True)
             summary = markdown(result["summary"])
             Summary.get(node).content = summary
-            node.title = f"{node.title}: {result['keypoint']}"
+            node.title = f"¶ {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
     elif len(node.children) > 0:  # Section/ Subsection
