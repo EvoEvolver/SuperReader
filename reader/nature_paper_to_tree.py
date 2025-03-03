@@ -2,6 +2,7 @@ import html
 from functools import partial
 
 import mllm.config
+from markdown_it.cli.parse import interactive
 from markdownify import markdownify
 from markdown import markdown
 import os, sys
@@ -227,6 +228,7 @@ def build_tree(parent: NatureNode, sec_dict):
 def url_to_tree(url: str) -> NatureNode:
     html_source = requests.get(url).text
     soup = BeautifulSoup(html_source, "html.parser")
+    complete_relative_links(soup, url)
     # replace_math_with_tex(soup)
     pre_process_html_tree(soup)
     head = NatureNode(soup, "root", "root", "", "")
@@ -238,7 +240,7 @@ def url_to_tree(url: str) -> NatureNode:
             continue
         anchors = n.get_soup().find_all('a', attrs={
             'data-track-action': ['section anchor', 'figure anchor']})
-        for a in anchors:
+        for a in anchors:   # Construct navigation between nodes
             href = a.get('href', '')
             if '#' in href:
                 anchor_key = href.split('#')[-1]
@@ -397,6 +399,7 @@ def adapt_tree_to_reader(head: Node, doc_soup):
             tooltip_title = anchor.get('title', 'Reference')
             anchor['style'] = 'color: cyan;'
             del anchor['href']
+            del anchor['title']
 
             tooltip = doc_soup.new_tag('Tooltip', title=tooltip_title)
             box = doc_soup.new_tag('Box', component='span')
@@ -407,15 +410,20 @@ def adapt_tree_to_reader(head: Node, doc_soup):
         #node.content = node_soup.__str__()
 
 
-def complete_relative_links(soup, base_url: str):
-    for a in soup.find_all('a', href=True):
+def complete_relative_links(soup, base_url: str="base"):
+    print(f"baseurl:{base_url}")
+    for a in soup.find_all('a', href=True, recursive=True):
+        print(a.__str__())
         if a['href'].startswith('/'):
+            print("matched")
             a['href'] = urljoin(base_url, a['href'])
+            print("new href:", a['href'])
             a['target'] = '_blank'
 
 
 def run_nature_paper_to_tree(url: str):
     doc, doc_soup = url_to_tree(url)
+    complete_relative_links(doc_soup, url)
     abstract_summary, short_summary = generate_summary_of_abstract(doc)
 
     for node in doc.iter_subtree_with_bfs():
@@ -445,12 +453,11 @@ def run_nature_paper_to_tree(url: str):
     doc.content = abstract
     construct_related_figures(doc)
 
-    complete_relative_links(doc_soup, url)
-
     for node in doc.iter_subtree_with_bfs():
         if len(node.children) > 0:
             continue
         node.content = node.get_soup().__str__()
+        print(node.title, node.content)
     return doc
 
 
@@ -458,4 +465,4 @@ if __name__ == "__main__":
     mllm.config.default_models.expensive = "gpt-4o"
     nature_url = "https://www.nature.com/articles/ncomms5213"
     doc = run_nature_paper_to_tree(nature_url)
-    doc.display(dev_mode=True)
+    doc.display(dev_mode=True,interactive=True)
