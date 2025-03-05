@@ -473,7 +473,6 @@ def run_nature_paper_to_tree(url: str):
 
 
 if __name__ == "__main__":
-    os.environ["OPENAI_API_KEY"] = "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"
     mllm.config.default_models.expensive = "gpt-4o"
     # nature_url = "https://www.nature.com/articles/ncomms5213"
     nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
