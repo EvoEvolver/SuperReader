@@ -106,28 +106,37 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
     subsection_title = None
     subsection_id = None
     children_elements = list(sectionSoup.children)
-    prev_para = None
+    prev_para_node = None
     for i, e in enumerate(children_elements):
         if not isinstance(e, Tag):
             continue
         print(i, e.name, label)
-        if e.name == 'ol' and prev_para:
-            prev_para.content += e.__str__()
-        elif is_leading and (e.name == 'p'):
-            Paragraph = NatureNode(e, "para", "paragraph",
-                                   "",
-                                   e.__str__())
-            prev_para = Paragraph
-            children.append(Paragraph)
-            index_para += 1
-        elif e.name == 'div' and e.get('data-container-section') == 'figure':
+        if not is_leading and e.name == 'ol' :
+            print(f"ol found!\n <split> {temp_parent}\n\n<ol content>{e.__str__()}")
             if temp_parent:
-                SubSection = NatureNode(temp_parent, "subsec", "subsection",
-                                        subsection_title, "")
-                sec_dict[subsection_id] = SubSection.node_id
-                build_tree(SubSection, sec_dict)
-                children.append(SubSection)
-                temp_parent = None
+                temp_parent.append(e)
+
+        elif is_leading and (e.name == 'p') or (e.name == 'ol'):
+            if not e.name=='ol' or not prev_para_node:
+                Paragraph = NatureNode(e, "para", "paragraph",
+                                       "",
+                                       e.__str__())
+                prev_para_node = Paragraph
+                children.append(Paragraph)
+                index_para += 1
+            elif e.name == 'ol': # append ol to the previous paragraph if possible
+                print(f"trying to add node {e.__str__()}\n\n<split> to {prev_para_node}" )
+                prev_para_node.get_soup().append(e)
+                print("after add:",prev_para_node.get_soup())
+
+        elif e.name == 'div' and e.get('data-container-section') == 'figure':
+            # if temp_parent:
+            #     SubSection = NatureNode(temp_parent, "subsec", "subsection",
+            #                             subsection_title, "")
+            #     sec_dict[subsection_id] = SubSection.node_id
+            #     build_tree(SubSection, sec_dict)
+            #     children.append(SubSection)
+            #     temp_parent = None
             a_tag = e.find('a', class_="c-article-section__figure-link")
             if a_tag and a_tag.has_attr('href'):
                 relative_url = a_tag['href']
@@ -180,6 +189,9 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
         elif temp_parent:
             print("para:", e.text)
             temp_parent.append(e)
+        else:
+            pass
+            #print(f"missed:{label},{temp_parent},{e.name},{sectionSoup.__str__()[:200]},\n\n\n{e.__str__()[:200]}")
     if temp_parent:
         SubSection = NatureNode(temp_parent, "subsec", "subsection",
                                 subsection_title, "")
@@ -457,12 +469,13 @@ def run_nature_paper_to_tree(url: str):
         if len(node.children) > 0:
             continue
         node.content = node.get_soup().__str__()
-        print(node.title, node.content)
     return doc
 
 
 if __name__ == "__main__":
+    os.environ["OPENAI_API_KEY"] = "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"
     mllm.config.default_models.expensive = "gpt-4o"
-    nature_url = "https://www.nature.com/articles/ncomms5213"
+    # nature_url = "https://www.nature.com/articles/ncomms5213"
+    nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
     doc = run_nature_paper_to_tree(nature_url)
-    doc.display(dev_mode=True,interactive=True)
+    doc.display(dev_mode=False,interactive=True)
