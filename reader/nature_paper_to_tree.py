@@ -1,8 +1,5 @@
-import html
 from functools import partial
-
 import mllm.config
-from markdown_it.cli.parse import interactive
 from markdownify import markdownify
 from markdown import markdown
 import os, sys
@@ -54,7 +51,6 @@ class NatureNode(Node):
 
 def pre_process_html_tree(soup: BeautifulSoup):
     for script in soup(["script", "style"]):
-        # remove all javascript and stylesheet code
         script.decompose()
 
     # replace { by &#123; and } by &#125; in all the text
@@ -110,7 +106,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
     for i, e in enumerate(children_elements):
         if not isinstance(e, Tag):
             continue
-        print(i, e.name, label)
+        #print(i, e.name, label)
         if not is_leading and e.name == 'ol' :
             print(f"ol found!\n <split> {temp_parent}\n\n<ol content>{e.__str__()}")
             if temp_parent:
@@ -190,6 +186,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
             print("para:", e.text)
             temp_parent.append(e)
         else:
+            print("discarded", e.__str__())
             pass
             #print(f"missed:{label},{temp_parent},{e.name},{sectionSoup.__str__()[:200]},\n\n\n{e.__str__()[:200]}")
     if temp_parent:
@@ -200,11 +197,6 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
         children.append(SubSection)
     return children
 
-
-def remove_tag(html_str, tag):
-    import re
-    pattern = rf'<{tag}[^>]*>.*?</{tag}>'
-    return re.sub(pattern, '', html_str)
 
 
 def build_tree(parent: NatureNode, sec_dict):
@@ -237,11 +229,18 @@ def build_tree(parent: NatureNode, sec_dict):
     return
 
 
+def replace_math_with_tex(soup: BeautifulSoup):
+    for math in soup.find_all('span', class_='mathjax-tex'):
+        script = math.text
+        tex_element = soup.new_tag('TeX', src=script)
+        math.replace_with(tex_element)
+        print("script123", script)
+
+
 def url_to_tree(url: str) -> NatureNode:
     html_source = requests.get(url).text
     soup = BeautifulSoup(html_source, "html.parser")
     complete_relative_links(soup, url)
-    # replace_math_with_tex(soup)
     pre_process_html_tree(soup)
     head = NatureNode(soup, "root", "root", "", "")
     sec_dict = {}
@@ -435,6 +434,7 @@ def complete_relative_links(soup, base_url: str="base"):
 
 def run_nature_paper_to_tree(url: str):
     doc, doc_soup = url_to_tree(url)
+    replace_math_with_tex(doc_soup)
     complete_relative_links(doc_soup, url)
     abstract_summary, short_summary = generate_summary_of_abstract(doc)
 
@@ -477,4 +477,4 @@ if __name__ == "__main__":
     # nature_url = "https://www.nature.com/articles/ncomms5213"
     nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
     doc = run_nature_paper_to_tree(nature_url)
-    doc.display(dev_mode=False,interactive=True)
+    doc.display(dev_mode=True)
