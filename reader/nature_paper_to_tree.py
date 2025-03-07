@@ -43,6 +43,9 @@ class NatureNode(Node):
     def get_soup(self) -> BeautifulSoup:
         return self._html_soup
 
+    def set_soup(self, soup):
+        self._html_soup = soup
+
     def set_children(self, children: List[Node]):
         self._children = children
         for c in self._children:
@@ -78,9 +81,6 @@ def pre_process_html_tree(soup: BeautifulSoup):
         old.replace_with(new)
 
 
-
-
-
 def get_abstract_node(rootSoup: BeautifulSoup) -> NatureNode:
     source = rootSoup.find('section', attrs={
         'data-title': 'Abstract'
@@ -100,7 +100,7 @@ def get_section_nodes(rootSoup: BeautifulSoup, sec_dict) -> list[NatureNode]:
         print(f"section: {section.get('data-title')}")
         Section = NatureNode(section.find('div', class_='c-article-section__content'),
                              section.get('data-title'), "section",
-                             str(section_index) + "." +  section.get('data-title'), "")
+                             str(section_index) + "." + section.get('data-title'), "")
         section_index += 1
         secId = section.find('h2')
         sec_dict[secId['id']] = Section.node_id
@@ -116,6 +116,13 @@ base_url = 'https://link.springer.com'
 
 
 def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[NatureNode]:
+    def is_leaf(e):
+        check_pass =  (e.name == 'p' or e.name == 'ol' or (
+                e.name == 'div' and bool(set(e.get('class', [])) & {'c-article-equation', 'c-article-table'}))
+        )
+        print(f"{check_pass} leafname:{e.name}, {e.get('class')}")
+        return check_pass
+
     children = []
     index_para = 1
     index_figure = 1
@@ -128,24 +135,27 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
     for i, e in enumerate(children_elements):
         if not isinstance(e, Tag):
             continue
-        #print(i, e.name, label)
-        if not is_leading and e.name == 'ol' :
+        # print(i, e.name, label)
+        if not is_leading and e.name == 'ol':
             print(f"ol found!\n <split> {temp_parent}\n\n<ol content>{e.__str__()}")
             if temp_parent:
                 temp_parent.append(e)
 
-        elif is_leading and (e.name == 'p') or (e.name == 'ol'):
-            if not e.name=='ol' or not prev_para_node:
+        elif is_leading and is_leaf(e):  # case for leaf
+            if e.name == 'p' or ('class' in e and 'c-article-table' in e.get(
+                    'class',[])) or not prev_para_node:  # for the text paragraph, table, or non text leading paragraph, generate a node
                 Paragraph = NatureNode(e, "para", "paragraph",
                                        "",
                                        e.__str__())
                 prev_para_node = Paragraph
                 children.append(Paragraph)
                 index_para += 1
-            elif e.name == 'ol': # append ol to the previous paragraph if possible
-                print(f"trying to add node {e.__str__()}\n\n<split> to {prev_para_node}" )
-                prev_para_node.get_soup().append(e)
-                print("after add:",prev_para_node.get_soup())
+            else:  # append equation or keypoints to the previous paragraph if possible
+                new_soup = BeautifulSoup("<div></div>", "html.parser")
+                new_div = new_soup.div
+                new_div.append(prev_para_node.get_soup())
+                new_div.append(e)
+                prev_para_node.set_soup(new_div)
 
         elif e.name == 'div' and e.get('data-container-section') == 'figure':
             # if temp_parent:
@@ -205,12 +215,11 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
 
             print("----------")
         elif temp_parent:
-            print("para:", e.text)
             temp_parent.append(e)
         else:
             print("discarded", e.__str__())
             pass
-            #print(f"missed:{label},{temp_parent},{e.name},{sectionSoup.__str__()[:200]},\n\n\n{e.__str__()[:200]}")
+            # print(f"missed:{label},{temp_parent},{e.name},{sectionSoup.__str__()[:200]},\n\n\n{e.__str__()[:200]}")
     if temp_parent:
         SubSection = NatureNode(temp_parent, "subsec", "subsection",
                                 subsection_title, "")
@@ -218,7 +227,6 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
         build_tree(SubSection, sec_dict)
         children.append(SubSection)
     return children
-
 
 
 def build_tree(parent: NatureNode, sec_dict):
@@ -273,7 +281,7 @@ def url_to_tree(url: str) -> NatureNode:
             continue
         anchors = n.get_soup().find_all('a', attrs={
             'data-track-action': ['section anchor', 'figure anchor']})
-        for a in anchors:   # Construct navigation between nodes
+        for a in anchors:  # Construct navigation between nodes
             href = a.get('href', '')
             if '#' in href:
                 anchor_key = href.split('#')[-1]
@@ -418,9 +426,6 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
     return True
 
 
-high_quality_arxiv_summary = True
-
-
 def adapt_tree_to_reader(head: Node, doc_soup):
     for node in head.iter_subtree_with_bfs():
         if len(node.children) > 0:
@@ -441,10 +446,10 @@ def adapt_tree_to_reader(head: Node, doc_soup):
             anchor.wrap(box)
             box.wrap(tooltip)
 
-        #node.content = node_soup.__str__()
+        # node.content = node_soup.__str__()
 
 
-def complete_relative_links(soup, base_url: str="base"):
+def complete_relative_links(soup, base_url: str = "base"):
     print(f"baseurl:{base_url}")
     for a in soup.find_all('a', href=True, recursive=True):
         print(a.__str__())
@@ -492,6 +497,9 @@ def run_nature_paper_to_tree(url: str):
         if len(node.children) > 0:
             continue
         node.content = node.get_soup().__str__()
+        if 'Then the bias score is computed as:' in node.content:
+            print("Print corresponding node contentaw")
+            print(node.content)
     return doc
 
 
@@ -500,4 +508,4 @@ if __name__ == "__main__":
     # nature_url = "https://www.nature.com/articles/ncomms5213"
     nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
     doc = run_nature_paper_to_tree(nature_url)
-    doc.display(dev_mode=True)
+    doc.display(dev_mode=False)
