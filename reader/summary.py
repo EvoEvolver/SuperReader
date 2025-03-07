@@ -18,13 +18,17 @@ class Summary(Attr):
         super().__init__(node)
         self.content = ""
         self.short_content = ""
+        self.show_content_as_detail = False
 
     def render(self, rendered):
         if self.content is None:
             return
         if len(self.node.content) > 0:
                 rendered.tabs["summary"] = str(self.content)
-                rendered.tools[0]["content"] = str(self.node.content)
+                if self.show_content_as_detail:
+                    rendered.tabs["summary"] += "<Expandable> " + str(self.node.content) + "</Expandable>"
+                else:
+                    rendered.tools[1]["content"] = str(self.node.content)
                 del rendered.tabs["content"]
         else:
             del rendered.tabs["content"]

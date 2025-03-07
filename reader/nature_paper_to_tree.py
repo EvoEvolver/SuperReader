@@ -53,11 +53,33 @@ def pre_process_html_tree(soup: BeautifulSoup):
     for script in soup(["script", "style"]):
         script.decompose()
 
+    elements_need_to_replace = []
+
     # replace { by &#123; and } by &#125; in all the text
     for element in soup.find_all(text=True):
-        if '{' in element or '}' in element:
-            updated_text = str(element.string).replace('{', '&lbrace;').replace('}', '&rbrace;')
-            element.replace_with(updated_text)
+        if '{' not in element and '}' not in element:
+            continue
+        elements_to_replace = []
+        # segmentize the text by { and }
+        segments = re.split(r'(\{|\})', element)
+        for i, seg in enumerate(segments):
+            if seg == '{':
+                elements_to_replace.append(soup.new_tag('TextSpan', text='{'))
+            elif seg == '}':
+                elements_to_replace.append(soup.new_tag('TextSpan', text='}'))
+            else:
+                elements_to_replace.append(soup.new_string(seg))
+        new_element = soup.new_tag('span')
+        for e in elements_to_replace:
+            new_element.append(e)
+        elements_need_to_replace.append((element, new_element))
+
+    for old, new in elements_need_to_replace:
+        old.replace_with(new)
+
+
+
+
 
 def get_abstract_node(rootSoup: BeautifulSoup) -> NatureNode:
     source = rootSoup.find('section', attrs={
@@ -331,10 +353,10 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
     </Paragraph>
     <Requirement>
     You are required to output a summary of the paragraph in the format of bullet points (in markdown). The summary should not be more than 50 words in total.
-    You are also required to output a keypoint for no more than 10 words which could use for a Table of Contents. 
+    You are also required to output a keypoint for no more than 15 words which could use for a Table of Contents. 
     Return your summary in JSON format with the following keys:
-    "summary" (str): The summary in markdown, with each bullet point in a new line and starting with a dash.
-    "keypoint" (str): The keypoint
+    "summary" (str): The summary in markdown, with each bullet point in a new line and starting with a dash. Each bullet point should be a complete sentence stating an important facts. The summary should be comprehensive.
+    "keypoint" (str): The keypoint stating facts about the paragraph. It should be a short sentence with subject and verb.
     </Requirement>
         """
         try:
@@ -342,6 +364,7 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
                                    cache=True)
             summary = markdown(result["summary"])
             Summary.get(node).content = summary
+            Summary.get(node).show_content_as_detail = False
             node.title = f"¶ {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
@@ -364,10 +387,10 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
     <Requirement>
     You are required to output a summary of the section in the format of bullet points (in markdown). The summary should not be more than 100 words in total.
     You are also required to output a keypoint of the section for no more than 30 words which could use for a Table of Contents. 
-    Notice that for both the summary and the keypoint describe, please start directly with meaningful content and DON'T add meaning less leading words like 'Thi paper tells'/'This paragraph tells'.
+    Notice that for both the summary and the keypoint describe, please start directly with meaningful content.
     Return your summary in JSON format with the following keys:
-    "summary" (str): The summary in markdown, with each bullet point in a new line and starting with a dash.
-    "keypoint" (str): The keypoint
+    "summary" (str): The summary in markdown, with each bullet point in a new line and starting with a dash. Each bullet point should be a complete sentence stating an important facts. The summary should be comprehensive.
+    "keypoint" (str): The keypoint stating facts about the contents. It should be a short sentence with subject and verb.
     </Requirement>
         """
         try:

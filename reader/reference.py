@@ -29,7 +29,7 @@ class RelatedFigures(Attr):
         self.figures = []
 
     def render(self, rendered):
-        rendered.tools[1]["figures"] = "<br/>".join(self.figures)
+        rendered.tools[0]["figures"] = "<br/>".join(self.figures)
 
 def construct_related_figures(root: ArxivNode):
     for node in root.children:
