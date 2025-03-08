@@ -117,15 +117,41 @@ base_url = 'https://link.springer.com'
 
 def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[NatureNode]:
     def is_leaf(e):
-        check_pass =  (e.name == 'p' or e.name == 'ol' or (
+        check_pass = (e.name == 'p' or e.name == 'ol' or (
                 e.name == 'div' and bool(set(e.get('class', [])) & {'c-article-equation', 'c-article-table'}))
         )
-        print(f"{check_pass} leafname:{e.name}, {e.get('class')}")
         return check_pass
 
+    def extract_table(e):
+        def extract_fullsize_table_soup(e):
+            table_link_tag = e.find('a', {'data-track-action': 'view table'})
+
+            if table_link_tag and table_link_tag.has_attr('href'):
+                relative_href = table_link_tag['href']
+                full_url = urljoin(base_url, relative_href)
+
+                response = requests.get(full_url)
+                if response.status_code == 200:
+                    return BeautifulSoup(response.text, 'html.parser')
+                else:
+                    print(f"Error on request: {response.status_code}")
+                    return None
+            else:
+                print("Button not found")
+                return None
+
+        soup = extract_fullsize_table_soup(e)
+
+        main_soup = soup.find('main')
+        main_soup.name = 'div'
+
+        Table = NatureNode(main_soup, "t", "table",
+                               "",
+                               main_soup.__str__())
+        return Table
+
+
     children = []
-    index_para = 1
-    index_figure = 1
     is_leading = True
     temp_parent = None
     subsection_title = None
@@ -137,19 +163,19 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
             continue
         # print(i, e.name, label)
         if not is_leading and e.name == 'ol':
-            print(f"ol found!\n <split> {temp_parent}\n\n<ol content>{e.__str__()}")
             if temp_parent:
                 temp_parent.append(e)
 
         elif is_leading and is_leaf(e):  # case for leaf
-            if e.name == 'p' or ('class' in e and 'c-article-table' in e.get(
-                    'class',[])) or not prev_para_node:  # for the text paragraph, table, or non text leading paragraph, generate a node
+            if e.name == 'p':  # for the text paragraph, or non text leading paragraph, generate a node
                 Paragraph = NatureNode(e, "para", "paragraph",
                                        "",
                                        e.__str__())
                 prev_para_node = Paragraph
                 children.append(Paragraph)
-                index_para += 1
+            elif 'c-article-table' in e.get(
+                    'class',[]):
+                children.append(extract_table(e))
             else:  # append equation or keypoints to the previous paragraph if possible
                 new_soup = BeautifulSoup("<div></div>", "html.parser")
                 new_div = new_soup.div
@@ -197,7 +223,6 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
             img["style"] = "max-width: 100%;"
             sec_dict[img['aria-describedby']] = Figure.node_id
             children.append(Figure)
-            index_figure += 1
         elif (e.name == 'h3' and label == 'section') or (
                 e.name == 'h4' and label == 'subsection'):
             if temp_parent:
@@ -497,9 +522,6 @@ def run_nature_paper_to_tree(url: str):
         if len(node.children) > 0:
             continue
         node.content = node.get_soup().__str__()
-        if 'Then the bias score is computed as:' in node.content:
-            print("Print corresponding node contentaw")
-            print(node.content)
     return doc
 
 
