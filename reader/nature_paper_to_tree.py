@@ -141,12 +141,17 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
                 return None
 
         soup = extract_fullsize_table_soup(e)
+        caption_tag = e.find('b', {'data-test': 'table-caption'})
+        table_title = "Table"
+        if caption_tag:
+            table_title =  caption_tag.get_text(strip=True)
+
 
         main_soup = soup.find('main')
         main_soup.name = 'div'
 
         Table = NatureNode(main_soup, "t", "table",
-                               "",
+                               table_title,
                                main_soup.__str__())
         return Table
 
@@ -375,6 +380,7 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
     if node.get_label() == "figure":
         Summary.get(node).content = None
         return True
+
     if len(node.children) == 0:
         chat = Chat(dedent=True)
         chat += f"""Providing an abstract of a scientific paper and a specific paragraph from the same paper. Please read both and then summarize the paragraph in the context of the abstract. 
@@ -398,7 +404,8 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
             summary = markdown(result["summary"])
             Summary.get(node).content = summary
             Summary.get(node).show_content_as_detail = False
-            node.title = f"¶ {result['keypoint']}"
+            if not node.get_label() == 'table':
+                node.title = f"¶ {result['keypoint']}"
         except Exception as e:
             Summary.get(node).content = "Failed to generate summary"
     elif len(node.children) > 0:  # Section/ Subsection
@@ -526,6 +533,8 @@ def run_nature_paper_to_tree(url: str):
 
 
 if __name__ == "__main__":
+    os.environ[
+         "OPENAI_API_KEY"] = "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"
     mllm.config.default_models.expensive = "gpt-4o"
     # nature_url = "https://www.nature.com/articles/ncomms5213"
     nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
