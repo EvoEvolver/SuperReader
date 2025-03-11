@@ -40,7 +40,11 @@ For example, you can use the following link:
 https://link.springer.com/article/10.1007/s10462-024-10740-3
 """
 )
-api_key = st.text_input("OpenAI API key")
+if "OPENAI_API_KEY" not in os.environ:
+    api_key = st.text_input("OpenAI API key")
+else:
+    api_key = os.environ["OPENAI_API_KEY"]
+
 link = st.text_input("Link to the article")
 button = st.button("Run")
 
