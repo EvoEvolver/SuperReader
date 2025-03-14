@@ -72,7 +72,8 @@ def replace_braces(soup):
         new_soup = BeautifulSoup("", "html.parser")
         new_element = new_soup.new_tag('TextSpan', text=element)
         elements_need_to_replace.append((element, new_element))
-    return elements_need_to_replace
+    for old, new in elements_need_to_replace:
+        old.replace_with(new)
 
 
 def get_abstract_node(rootSoup: BeautifulSoup) -> NatureNode:
@@ -522,7 +523,7 @@ if __name__ == "__main__":
     import dotenv
     dotenv.load_dotenv()
     mllm.config.default_models.expensive = "gpt-4o"
-    # nature_url = "https://www.nature.com/articles/ncomms5213"
-    nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
+    nature_url = "https://www.nature.com/articles/ncomms5213"
+    #nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
     doc = run_nature_paper_to_tree(nature_url)
     doc.display(dev_mode=True)
