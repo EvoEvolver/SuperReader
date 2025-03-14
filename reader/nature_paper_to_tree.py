@@ -69,19 +69,8 @@ def replace_braces(soup):
     for element in soup.find_all(text=True):
         if '{' not in element and '}' not in element:
             continue
-        elements_to_replace = []
-        # segmentize the text by { and }
-        segments = re.split(r'(\{|\})', element)
-        for i, seg in enumerate(segments):
-            if seg == '{':
-                elements_to_replace.append(soup.new_tag('TextSpan', text='{'))
-            elif seg == '}':
-                elements_to_replace.append(soup.new_tag('TextSpan', text='}'))
-            else:
-                elements_to_replace.append(soup.new_string(seg))
-        new_element = soup.new_tag('span')
-        for e in elements_to_replace:
-            new_element.append(e)
+        new_soup = BeautifulSoup("", "html.parser")
+        new_element = new_soup.new_tag('TextSpan', text=element)
         elements_need_to_replace.append((element, new_element))
     return elements_need_to_replace
 
@@ -363,22 +352,15 @@ def generate_summary_of_abstract(root: Node):
                 {markdownify(node.content)}
                 </Abstract>
                 """
-            try:
+            abstract_summary = \
+                chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
+                              cache=True)[
+                    "summary"]
+            short_summary = \
+                chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
+                              cache=True)["brief"]
 
-                abstract_summary = \
-                    chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
-                                  cache=True)[
-                        "summary"]
-                short_summary = \
-                    chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
-                                  cache=True)["brief"]
-
-                return abstract_summary, short_summary
-            except Exception as e:
-                abstract = node.content
-            return abstract
-        else:
-            continue
+            return abstract_summary, short_summary
 
 
 def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
@@ -537,6 +519,8 @@ def run_nature_paper_to_tree(url: str):
 
 
 if __name__ == "__main__":
+    import dotenv
+    dotenv.load_dotenv()
     mllm.config.default_models.expensive = "gpt-4o"
     # nature_url = "https://www.nature.com/articles/ncomms5213"
     nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
