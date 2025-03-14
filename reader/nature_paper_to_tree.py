@@ -3,7 +3,6 @@ import mllm.config
 from markdownify import markdownify
 from markdown import markdown
 import os, sys
-
 sys.path.append(os.path.abspath("../../FibersNext"))
 sys.path.append(os.path.abspath("../../Forest"))
 sys.path.append(os.path.abspath("../../SuperReader"))
@@ -56,27 +55,23 @@ def pre_process_html_tree(soup: BeautifulSoup):
     for script in soup(["script", "style"]):
         script.decompose()
 
-    elements_need_to_replace = []
 
+def replace_math_with_tex(soup: BeautifulSoup):
+    for math in soup.find_all('span', class_='mathjax-tex'):
+        script = math.text
+        tex_element = BeautifulSoup("", "html.parser")
+        tex_element.append(tex_element.new_tag('TeX', src=script))
+        math.replace_with(tex_element)
+
+def replace_braces(soup):
+    elements_need_to_replace = []
     # replace { by &#123; and } by &#125; in all the text
     for element in soup.find_all(text=True):
         if '{' not in element and '}' not in element:
             continue
-        elements_to_replace = []
-        # segmentize the text by { and }
-        segments = re.split(r'(\{|\})', element)
-        for i, seg in enumerate(segments):
-            if seg == '{':
-                elements_to_replace.append(soup.new_tag('TextSpan', text='{'))
-            elif seg == '}':
-                elements_to_replace.append(soup.new_tag('TextSpan', text='}'))
-            else:
-                elements_to_replace.append(soup.new_string(seg))
-        new_element = soup.new_tag('span')
-        for e in elements_to_replace:
-            new_element.append(e)
+        new_soup = BeautifulSoup("", "html.parser")
+        new_element = new_soup.new_tag('TextSpan', text=element)
         elements_need_to_replace.append((element, new_element))
-
     for old, new in elements_need_to_replace:
         old.replace_with(new)
 
@@ -147,12 +142,13 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
             table_title =  caption_tag.get_text(strip=True)
 
 
-        main_soup = soup.find('main')
-        main_soup.name = 'div'
-
-        Table = NatureNode(main_soup, "t", "table",
+        table_soup = soup.find('div', class_='c-article-table-container')
+        # set style for the table
+        table_soup['style'] = 'font-size: 60%;'
+        sectionSoup.append(table_soup)
+        Table = NatureNode(table_soup, "t", "table",
                                table_title,
-                               main_soup.__str__())
+                               table_soup.__str__())
         return Table
 
 
@@ -167,7 +163,7 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
         if not isinstance(e, Tag):
             continue
         # print(i, e.name, label)
-        if not is_leading and e.name == 'ol':
+        if not is_leading and e.name in ['ol', 'ul']:
             if temp_parent:
                 temp_parent.append(e)
 
@@ -289,12 +285,7 @@ def build_tree(parent: NatureNode, sec_dict):
     return
 
 
-def replace_math_with_tex(soup: BeautifulSoup):
-    for math in soup.find_all('span', class_='mathjax-tex'):
-        script = math.text
-        tex_element = soup.new_tag('TeX', src=script)
-        math.replace_with(tex_element)
-        print("script123", script)
+
 
 
 def url_to_tree(url: str) -> NatureNode:
@@ -305,7 +296,11 @@ def url_to_tree(url: str) -> NatureNode:
     head = NatureNode(soup, "root", "root", "", "")
     sec_dict = {}
     build_tree(head, sec_dict)
-
+    for n in head.iter_subtree_with_bfs():
+        if len(n.children) > 0:
+            continue
+        replace_math_with_tex(n.get_soup())
+        replace_braces(n.get_soup())
     for n in head.iter_subtree_with_bfs():
         if len(n.children) > 0:
             continue
@@ -358,26 +353,19 @@ def generate_summary_of_abstract(root: Node):
                 {markdownify(node.content)}
                 </Abstract>
                 """
-            try:
+            abstract_summary = \
+                chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
+                              cache=True)[
+                    "summary"]
+            short_summary = \
+                chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
+                              cache=True)["brief"]
 
-                abstract_summary = \
-                    chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
-                                  cache=True)[
-                        "summary"]
-                short_summary = \
-                    chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
-                                  cache=True)["brief"]
-
-                return abstract_summary, short_summary
-            except Exception as e:
-                abstract = node.content
-            return abstract
-        else:
-            continue
+            return abstract_summary, short_summary
 
 
 def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
-    if node.get_label() == "figure":
+    if node.get_label() in ["figure", "table"]:
         Summary.get(node).content = None
         return True
 
@@ -494,7 +482,6 @@ def complete_relative_links(soup, base_url: str = "base"):
 
 def run_nature_paper_to_tree(url: str):
     doc, doc_soup = url_to_tree(url)
-    replace_math_with_tex(doc_soup)
     complete_relative_links(doc_soup, url)
     abstract_summary, short_summary = generate_summary_of_abstract(doc)
 
@@ -533,10 +520,10 @@ def run_nature_paper_to_tree(url: str):
 
 
 if __name__ == "__main__":
-    os.environ[
-         "OPENAI_API_KEY"] = "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"
+    import dotenv
+    dotenv.load_dotenv()
     mllm.config.default_models.expensive = "gpt-4o"
-    # nature_url = "https://www.nature.com/articles/ncomms5213"
-    nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
+    nature_url = "https://www.nature.com/articles/ncomms5213"
+    #nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
     doc = run_nature_paper_to_tree(nature_url)
-    doc.display(dev_mode=False)
+    doc.display(dev_mode=True)
