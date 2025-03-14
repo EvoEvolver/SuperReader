@@ -468,7 +468,7 @@ def adapt_tree_to_reader(head: Node, doc_soup):
 
         for anchor in anchors:
             tooltip_title = anchor.get('title', 'Reference')
-            anchor['style'] = 'color: cyan;'
+            anchor['style'] = 'color: blue;'
             del anchor['href']
             del anchor['title']
 
