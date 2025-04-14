@@ -3,3 +3,4 @@ Fibers@git+https://github.com/EvoEvolver/Fibers
 Forest@git+https://github.com/EvoEvolver/Forest
 streamlit
 markdownify
+flask
