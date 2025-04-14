@@ -56,7 +56,7 @@ def run(link, api_key):
     data = response.json()
     tree_data = data.get("tree_data")
     root_id = data.get("root_id")
-    send_tree_to_backend("0.0.0.0", reader_port, tree_data, root_id)
+    send_tree_to_backend("0.0.0.0:29999", tree_data, root_id)
     return root_id
 
 st.session_state["links"] = {}
