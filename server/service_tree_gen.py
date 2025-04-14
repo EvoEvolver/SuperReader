@@ -14,6 +14,9 @@ mllm.config.default_models.expensive = "gpt-4o"
 api_key = os.environ["OPENAI_API_KEY"]
 litellm.openai_key = api_key
 
+# In-memory cache
+cache = {}
+
 @app.route('/generate', methods=['POST'])
 def generate():
     # Parse JSON payload from the request
@@ -23,8 +26,16 @@ def generate():
 
     link = data["url"]
     html_source = data["html_source"]
-    doc = run_nature_paper_to_tree(html_source, link)
+
+    # Generate cache key
     link_sha1 = hashlib.sha1(link.encode()).hexdigest()
+
+    # Check if response is cached
+    if link_sha1 in cache:
+        return jsonify(cache[link_sha1]), 200
+
+    # Process the request
+    doc = run_nature_paper_to_tree(html_source, link)
     doc.node_id = link_sha1
     tree_data = Renderer().render_to_json(doc)
 
@@ -32,6 +43,9 @@ def generate():
         "tree_data": tree_data,
         "root_id": doc.node_id
     }
+
+    # Cache the response
+    cache[link_sha1] = response_data
 
     return jsonify(response_data), 200
 
