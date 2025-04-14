@@ -23,14 +23,18 @@ def check_openai_key(api_key: str) -> bool:
         return False
 
 def get_current_keys():
-    # getTreeList
-    url = f'http://0.0.0.0:{reader_port}/api/getTreeList'
-    response = requests.get(url)
-    return response.json()
+    try:
+        url = f'http://0.0.0.0:{reader_port}/api/getTreeList'
+        response = requests.get(url)
+        response.raise_for_status()  # Ensure HTTP errors are raised
+        return response.json()
+    except Exception as e:
+        return []
+
+current_keys = get_current_keys()
 
 def try_redirect_to_tree(link):
     link_sha1 = hashlib.sha1(link.encode()).hexdigest()
-    current_keys = get_current_keys()
     if link_sha1 in current_keys:
         tree_link = f"{reader_host}/?id={link_sha1}"
         st.link_button("Open the tree", tree_link)
@@ -41,15 +45,19 @@ if link_url:
     try_redirect_to_tree(link_url)
 
 def run(link, api_key):
-    mllm.config.default_models.expensive = "gpt-4o"
-    litellm.openai_key = api_key
-    doc = run_nature_paper_to_tree(link)
-    link_sha1 = hashlib.sha1(link.encode()).hexdigest()
-    doc.node_id = link_sha1
-    current_keys = get_current_keys()
-    tree_data = Renderer().render_to_json(doc)
-    send_tree_to_backend("0.0.0.0", reader_port, tree_data, doc.node_id)
-    return doc.node_id
+    html_source = requests.get(link).text
+    payload = {
+        "url": link,
+        "html_source": html_source,
+        "openai_api_key": api_key
+    }
+    response = requests.post("http://127.0.0.1:8081/generate", json=payload)
+    response.raise_for_status()
+    data = response.json()
+    tree_data = data.get("tree_data")
+    root_id = data.get("root_id")
+    send_tree_to_backend("0.0.0.0", reader_port, tree_data, root_id)
+    return root_id
 
 st.session_state["links"] = {}
 

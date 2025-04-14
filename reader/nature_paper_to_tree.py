@@ -88,6 +88,8 @@ def get_abstract_node(rootSoup: BeautifulSoup) -> NatureNode:
 def get_section_nodes(rootSoup: BeautifulSoup, sec_dict) -> list[NatureNode]:
     children = []
     mainContent = rootSoup.find('div', class_='main-content')
+    if mainContent is None:
+        raise Exception("Can't resolve main content. This is usually due to the page not being open access.")
     section_index = 1
     for section in mainContent.children:
         if not isinstance(section, Tag):
@@ -290,6 +292,10 @@ def build_tree(parent: NatureNode, sec_dict):
 
 def url_to_tree(url: str) -> NatureNode:
     html_source = requests.get(url).text
+    return html_to_tree(html_source, url)
+
+
+def html_to_tree(html_source, url):
     soup = BeautifulSoup(html_source, "html.parser")
     complete_relative_links(soup, url)
     pre_process_html_tree(soup)
@@ -336,7 +342,6 @@ def url_to_tree(url: str) -> NatureNode:
             a.decompose()
 
         n.content = n.get_soup().__str__()
-
     RefSoup = soup.find('ul', class_="c-article-references", recursive=True)
     # Rematch references
     if not RefSoup:
@@ -480,8 +485,8 @@ def complete_relative_links(soup, base_url: str = "base"):
             a['target'] = '_blank'
 
 
-def run_nature_paper_to_tree(url: str):
-    doc, doc_soup = url_to_tree(url)
+def run_nature_paper_to_tree(html_source: str, url: str):
+    doc, doc_soup = html_to_tree(html_source, url)
     complete_relative_links(doc_soup, url)
     abstract_summary, short_summary = generate_summary_of_abstract(doc)
 
@@ -523,7 +528,8 @@ if __name__ == "__main__":
     import dotenv
     dotenv.load_dotenv()
     mllm.config.default_models.expensive = "gpt-4o"
-    nature_url = "https://www.nature.com/articles/ncomms5213"
+    nature_url = "https://www.nature.com/articles/s41586-025-08854-x"
     #nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
-    doc = run_nature_paper_to_tree(nature_url)
+    html_source = requests.get(nature_url).text
+    doc = run_nature_paper_to_tree(html_source, nature_url)
     doc.display(dev_mode=True)

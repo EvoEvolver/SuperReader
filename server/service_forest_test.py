@@ -7,5 +7,6 @@ reader_port = 29999
 
 
 if __name__ == '__main__':
-    node = Node("123")
+    node = Node("1234")
+    print(Renderer().render_to_json(node))
     send_tree_to_backend("0.0.0.0", reader_port, Renderer().render_to_json(node), node.node_id)
