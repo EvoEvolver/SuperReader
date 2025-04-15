@@ -9,6 +9,8 @@ COPY . .
 
 RUN pip install -r requirements.txt
 
-EXPOSE 8080 29999
+RUN pip install -r server/requirements.txt
+
+EXPOSE 8080 29999 8081
 
 CMD python -m streamlit run server/service_streamlit.py --server.port=8080 --server.address=0.0.0.0 & python server/service_forest.py & python server/service_tree_gen.py & wait
