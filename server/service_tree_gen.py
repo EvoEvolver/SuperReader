@@ -15,8 +15,8 @@ api_key = os.environ["OPENAI_API_KEY"]
 litellm.openai_key = api_key
 
 # Initialize Redis client
-redis_host = os.environ.get("REDIS_HOST", "localhost")
-redis_client = Redis(host=redis_host, port=6379, decode_responses=True)
+redis_host = os.environ.get("REDIS_URL", "localhost")
+redis_client = Redis.from_url(redis_host, decode_responses=True)
 
 # Fallback in-memory cache
 fallback_cache = {}
