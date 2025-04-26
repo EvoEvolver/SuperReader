@@ -40,7 +40,7 @@ def generate():
     html_source = data["html_source"]
 
     # Generate cache key
-    link_sha1 = hashlib.sha1(link.encode()).hexdigest()
+    link_sha1 = "v1" + hashlib.sha1(link.encode()).hexdigest()
 
     # Try to get cached response from Redis
     try:
