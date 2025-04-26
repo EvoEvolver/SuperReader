@@ -23,7 +23,7 @@ from fibers.tree import Node
 from reader.summary import Summary
 
 high_quality_arxiv_summary = False
-
+not_download_figures_table = False
 
 class NatureNode(Node):
     def __init__(self, source: BeautifulSoup | Tag, id: str, label: str, title: str = "",
@@ -178,6 +178,8 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
                 children.append(Paragraph)
             elif 'c-article-table' in e.get(
                     'class',[]):
+                if not_download_figures_table:
+                    continue
                 children.append(extract_table(e))
             else:  # append equation or keypoints to the previous paragraph if possible
                 new_soup = BeautifulSoup("<div></div>", "html.parser")
@@ -196,6 +198,8 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
             #     temp_parent = None
             a_tag = e.find('a', class_="c-article-section__figure-link")
             if a_tag and a_tag.has_attr('href'):
+                if not_download_figures_table:
+                    continue
                 relative_url = a_tag['href']
                 full_url = urljoin(base_url, relative_url)
                 print('url:', full_url)
@@ -378,42 +382,36 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
         return True
 
     if len(node.children) == 0:
-        chat = Chat(dedent=True)
-        chat += f"""Providing an abstract of a scientific paper and a specific paragraph from the same paper. Please read both and then summarize the paragraph in the context of the abstract. 
-    <Abstract>
-    {abstract}
-    </Abstract>
-    <Paragraph>
-    {markdownify(node.content)}
-    </Paragraph>
-    <Requirement>
-    You are required to output a summary of the paragraph in the format of bullet points (in markdown). The summary should not be more than 50 words in total.
-    You are also required to output a keypoint for no more than 15 words which could use for a Table of Contents. 
-    Return your summary in JSON format with the following keys:
-    "summary" (str): The summary in markdown, with each bullet point in a new line and starting with a dash. Each bullet point should be a complete sentence stating an important facts. The summary should be comprehensive.
-    "keypoint" (str): The keypoint stating facts about the paragraph. It should be a short sentence with subject and verb.
-    </Requirement>
-        """
-        try:
-            result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
-                                   cache=True)
-            summary = markdown(result["summary"])
-            Summary.get(node).content = summary
-            Summary.get(node).show_content_as_detail = False
-            if not node.get_label() == 'table':
-                node.title = f"¶ {result['keypoint']}"
-        except Exception as e:
-            Summary.get(node).content = "Failed to generate summary"
+        generate_summary_for_leaf_node(abstract, node)
     elif len(node.children) > 0:  # Section/ Subsection
-        chat = Chat(dedent=True)
         for e in node.children:
             if Summary not in e.attrs:
                 return False
-        content_list = [Summary.get(e).content for e in node.children if
-                        Summary in e.attrs and Summary.get(e).content != None]
-        contents = "\n".join(content_list)
-        chat += f"""
-        Please summarize the section of a scientific paper. 
+        generate_summary_for_section_node(abstract, node)
+    else:
+        if Summary not in node.attrs:
+            Summary.get(node).content = None
+    return True
+
+
+def generate_summary_for_section_node(abstract, node):
+    #content_list = [Summary.get(e).get_summary_for_resummary() for e in node.children if
+    #                Summary in e.attrs and Summary.get(e).has_summary()]
+    content_list = []
+    for e in node.children:
+        if Summary in e.attrs and Summary.get(e).has_summary():
+            if Summary.get(e).short_content != "":
+                content_list.append("# "+Summary.get(e).short_content)
+            else:
+                content_list.append("# Subsection")
+            content_list.append(Summary.get(e).get_summary_for_resummary())
+            content_list.append("---")
+
+    contents = "\n".join(content_list)
+
+    chat = Chat(dedent=True)
+    chat += f"""
+    Here is an abstract of a scientific paper and a specific paragraph from the same paper. Please summarize the content of the section.
     <Abstract>
     {abstract}
     </Abstract>
@@ -421,38 +419,86 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
     {contents}
     </Contents>
     <Requirement>
-    You are required to output a summary of the section in the format of bullet points (in markdown). The summary should not be more than 100 words in total.
-    You are also required to output a keypoint of the section for no more than 30 words which could use for a Table of Contents. 
-    Notice that for both the summary and the keypoint describe, please start directly with meaningful content.
-    Return your summary in JSON format with the following keys:
-    "summary" (str): The summary in markdown, with each bullet point in a new line and starting with a dash. Each bullet point should be a complete sentence stating an important facts. The summary should be comprehensive.
-    "keypoint" (str): The keypoint stating facts about the contents. It should be a short sentence with subject and verb.
+    You are required to output a summary of the section contents in the format of 2~5 key points. The key points should not be more than 70 words in total. The key points should summary the original content comprehensively.
+    Return your summary in with a JSON with a single key "points", whose value is a list with 3~5 JSON objects with the following keys:
+    "point" (str): A key point of the section contents. The key point should be a complete sentence stating an important facts. 
+    "evidence" (str): A copy of the original text that support the point.
     </Requirement>
         """
-        try:
-            result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
-                                   cache=True)
-            summary1 = markdown(result["summary"])
-            short_summary = result['keypoint']
-            Summary.get(node).content = summary1
-            Summary.get(node).short_content = short_summary
+    try:
+        result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
+                               cache=True)
+        Summary.get(node).summaries_with_evidence = result["points"]
 
-            node_title_summary = []
-            for child in node.children:
-                node_title_summary.append(f"<strong>{child.title}</strong>")
-                if Summary.get(child).short_content:
-                    node_title_summary.append(f"{Summary.get(child).short_content}")
+        node_title_summary = []
+        for child in node.children:
+            node_title_summary.append(f"<strong>{child.title}</strong>")
+            if Summary.get(child).short_content:
+                node_title_summary.append(f"{Summary.get(child).short_content}")
 
-            node_content = '\n\n<br/>'.join(node_title_summary)
-            node.content = node_content
+        node_content = '\n\n<br/>'.join(node_title_summary)
+        node.content = node_content
 
-        except Exception as e:
-            Summary.get(node).content = "Failed to generate summary"
-    else:
-        if Summary not in node.attrs:
-            Summary.get(node).content = None
-    return True
+    except Exception as e:
+        Summary.get(node).content = "Failed to generate summary"
 
+    chat = Chat(dedent=True)
+    chat += f"""Here is an abstract of a scientific paper and a specific paragraph from the same paper. Please summarize the content of the section.
+    <Abstract>
+    {abstract}
+    </Abstract>
+    <Contents>
+    {contents}
+    </Contents>
+    <Requirement>
+    You are required to output a short summary for the section. The title should be a complete sentence that help people to understand the content of the paragraph. The summary should not be more than 20 words in total.
+    Return your summary in with a JSON with a single key "summary", whose value is a string.
+    </Requirement>
+    """
+    result = chat.complete(expensive=False, parse="dict",
+                           cache=True)
+    Summary.get(node).short_content = result["summary"]
+
+
+def generate_summary_for_leaf_node(abstract, node):
+    chat = Chat(dedent=True)
+    chat += f"""Here is an abstract of a scientific paper and a specific paragraph from the same paper. Please read both and then summarize the paragraph in the context of the abstract. 
+    <Abstract>
+    {abstract}
+    </Abstract>
+    <Paragraph>
+    {node.content}
+    </Paragraph>
+    <Requirement>
+    You are required to output a summary of the paragraph in the format of 2~5 key points. The key points should not be more than 70 words in total. The key points should summary the original content comprehensively.
+    Return your summary in with a JSON with a single key "points", whose value is a list with 3~5 JSON objects with the following keys:
+    "point" (str): A key point of the paragraph. The key point should be a complete sentence stating an important facts. 
+    "evidence" (str): A copy of the original text that support the point.
+    </Requirement>
+    """
+    try:
+        result = chat.complete(expensive=high_quality_arxiv_summary, parse="dict",
+                               cache=True)
+        Summary.get(node).summaries_with_evidence = result["points"]
+    except Exception as e:
+        Summary.get(node).content = "Failed to generate summary"
+
+    chat = Chat(dedent=True)
+    chat += f"""Here is an abstract of a scientific paper and a specific paragraph from the same paper.
+    <Abstract>
+    {abstract}
+    </Abstract>
+    <Paragraph>
+    {node.content}
+    </Paragraph>
+    <Requirement>
+    You are required to output a title for the paragraph. The title should be a complete sentence that help people to understand the content of the paragraph. The title should not be more than 20 words in total.
+    Return your title in with a JSON with a single key "title", whose value is a string.
+    </Requirement>
+    """
+    result = chat.complete(expensive=False, parse="dict",
+                           cache=True)
+    node.title = f"""¶ {result["title"]}"""
 
 def adapt_tree_to_reader(head: Node, doc_soup):
     for node in head.iter_subtree_with_bfs():

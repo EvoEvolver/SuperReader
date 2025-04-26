@@ -1,11 +1,12 @@
 from __future__ import annotations
+
 import html
 from typing import TYPE_CHECKING
 
+from markdownify import markdownify
 from mllm import Chat
 
 from fibers.tree.node_attr import Attr
-from reader.caselaw_to_tree import is_first_level, is_second_level, is_third_level
 
 if TYPE_CHECKING:
     from fibers.tree import Node
@@ -19,20 +20,46 @@ class Summary(Attr):
         self.content = ""
         self.short_content = ""
         self.show_content_as_detail = False
+        self.summaries_with_evidence = []
+
+    def has_summary(self):
+        if self.content != "":
+            return True
+        if len(self.summaries_with_evidence) > 0:
+            return True
+        return False
+
+    def get_summary_for_resummary(self):
+        if self.content != "":
+            return self.content
+        if len(self.summaries_with_evidence) > 0:
+            summary_to_summary = []
+            for point in self.summaries_with_evidence:
+                point_summary = f"""- {html.escape(point["point"])}"""
+                summary_to_summary.append(point_summary)
+            return "\n".join(summary_to_summary)
+
+    def get_summary_for_display(self):
+        if self.content != "":
+            return self.content
+        if len(self.summaries_with_evidence) > 0:
+            summary_to_display = ["<ul>"]
+            for point in self.summaries_with_evidence:
+                display_html = f"""<li>{point["point"]}<Tooltip title="Source: {markdownify(point["evidence"])}"><span>📄</span></Tooltip></li>"""
+                summary_to_display.append(display_html)
+            summary_to_display.append("</ul>")
+            return "".join(summary_to_display)
 
     def render(self, rendered):
         if self.content is None:
             return
         if len(self.node.content) > 0:
-                rendered.tabs["summary"] = str(self.content)
-                if self.show_content_as_detail:
-                    rendered.tabs["summary"] += "<Expandable> " + str(self.node.content) + "</Expandable>"
-                else:
-                    rendered.tools[1]["content"] = str(self.node.content)
+                rendered.tabs["summary"] = self.get_summary_for_display()
+                rendered.tools[1]["content"] = str(self.node.content)
                 del rendered.tabs["content"]
         else:
             del rendered.tabs["content"]
-            rendered.tabs["summary"] = str(self.content)
+            rendered.tabs["summary"] = self.get_summary_for_display()
         if self.short_content:
             rendered.data["short_summary"] = self.short_content
 
