@@ -395,8 +395,6 @@ def generate_summary_for_node(node: NatureNode, abstract: str) -> bool:
 
 
 def generate_summary_for_section_node(abstract, node):
-    #content_list = [Summary.get(e).get_summary_for_resummary() for e in node.children if
-    #                Summary in e.attrs and Summary.get(e).has_summary()]
     content_list = []
     for e in node.children:
         if Summary in e.attrs and Summary.get(e).has_summary():

@@ -23,7 +23,7 @@ class Summary(Attr):
         self.summaries_with_evidence = []
 
     def has_summary(self):
-        if self.content != "":
+        if self.content != "" and self.content is not None:
             return True
         if len(self.summaries_with_evidence) > 0:
             return True
