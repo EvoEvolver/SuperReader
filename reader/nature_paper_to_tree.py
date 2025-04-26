@@ -225,7 +225,10 @@ def get_subsection_nodes(sectionSoup: BeautifulSoup, label, sec_dict) -> list[Na
             del img["height"]
             img["style"] = "max-width: 100%;"
             sec_dict[img['aria-describedby']] = Figure.node_id
-            children.append(Figure)
+            if temp_parent:
+                temp_parent.append(e)
+            else:
+                children.append(Figure)
         elif (e.name == 'h3' and label == 'section') or (
                 e.name == 'h4' and label == 'subsection'):
             if temp_parent:
@@ -528,7 +531,7 @@ if __name__ == "__main__":
     import dotenv
     dotenv.load_dotenv()
     mllm.config.default_models.expensive = "gpt-4o"
-    nature_url = "https://www.nature.com/articles/s41586-025-08854-x"
+    nature_url = "https://link.springer.com/article/10.1007/s10462-024-10902-3#Abs1"
     #nature_url = "https://link.springer.com/article/10.1007/s10462-024-10896-y"
     html_source = requests.get(nature_url).text
     doc = run_nature_paper_to_tree(html_source, nature_url)
