@@ -30,6 +30,7 @@ class RelatedFigures(Attr):
 
     def render(self, rendered):
         rendered.tools[0]["figures"] = "<br/>".join(self.figures)
+        rendered.tools[0]["Chat"] = "<ChatView/>"
 
 def construct_related_figures(root: ArxivNode):
     for node in root.children:
