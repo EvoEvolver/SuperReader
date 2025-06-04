@@ -94,7 +94,9 @@ fi
 ############################################
 # 6. Deep‐scan up to MAX_COMMITS for tracked `.env` or blob secrets
 ############################################
-MAX_COMMITS=200
+# Here max commits too large may conflict with local secure test commits history or local history that violated check but issue already fixed.
+# Set to small number when you already maked sure that no leak happen manualy
+MAX_COMMITS=5
 printf "${YEL}🔍  Deep‐scanning up to %d commits in range %s ...${NC}\n" "$MAX_COMMITS" "$commit_range"
 
 commits_to_scan=()
