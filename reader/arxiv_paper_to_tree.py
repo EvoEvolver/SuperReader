@@ -402,7 +402,8 @@ def generate_tree_with_url(url: str, host: str) -> str:
 if __name__ == "__main__":
     import dotenv,mllm
     dotenv.load_dotenv()
-    AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY"
+    
+    Authorization = "Bearer abcdefghijklmnopqrstuvwxyz123456"
 
 
    
