@@ -402,6 +402,10 @@ def generate_tree_with_url(url: str, host: str) -> str:
 if __name__ == "__main__":
     import dotenv,mllm
     dotenv.load_dotenv()
+    OPENAI_API_KEY = "sk-1234567890abcdef12345678"
+
+   
+
     mllm.config.default_models.expensive = "gpt-4o"
     # arxiv_url = "https://arxiv.org/html/2401.11314v2"
     # arxiv_url = "https://arxiv.org/html/2404.04326v1"
