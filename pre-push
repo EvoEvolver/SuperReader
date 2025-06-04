@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+#
+# Git pre-push hook – blocks pushes if secrets may leak, with fallback when stdin is empty.
+#
+# Workflow:
+#  1) Read entire stdin into `raw_input`.
+#  2) Try to parse <local_sha> and <remote_sha> from `raw_input`.
+#  3) If either is empty, use `git rev-parse HEAD` and `git ls-remote <remote_url> refs/heads/main`
+#     to compute the commit_range = remote_sha..local_sha.
+#  4) Perform diff‐only scan for hardcoded secrets and ensure .gitignore ignores .env*.
+#  5) Deep‐scan up to MAX_COMMITS of the recent commits in that range for .env and regex matches.
+#
+# Customize:
+#   MAX_COMMITS=20    # scan only the most recent 20 commits
+#
+# Any detected problem prints an error and exits 1 to block the push.
+#
+set -x
+############################################
+# 0. Read stdin, parse local_sha and remote_sha if provided
+############################################
+raw_input="$(cat - 2>/dev/null || echo "")"
+echo "[DEBUG] raw stdin is:"
+echo "$raw_input" | sed 's/^/    | /'
+
+first_line="$(echo "$raw_input" | head -n1)"
+local_sha="$(echo "$first_line" | awk '{print $2}')"
+remote_sha="$(echo "$first_line" | awk '{print $4}')"
+echo "[DEBUG] parsed local_sha = '$local_sha'"
+echo "[DEBUG] parsed remote_sha = '$remote_sha'"
+
+############################################
+# 1. If stdin was empty or didn't contain SHA info, fallback to ls-remote
+############################################
+if [[ -z "$local_sha" || -z "$remote_sha" ]]; then
+  printf "[DEBUG] stdin empty or missing; computing commit_range via rev-parse & ls-remote\n"
+  local_sha="$(git rev-parse HEAD)"
+  remote_name="$1"
+  remote_url="$2"
+  remote_sha="$(git ls-remote "$remote_url" refs/heads/main | awk '{print $1}')"
+  if [[ -z "$remote_sha" ]]; then
+    remote_sha="0000000000000000000000000000000000000000"
+  fi
+  echo "[DEBUG] fallback local_sha = '$local_sha', remote_sha = '$remote_sha'"
+fi
+
+set -euo pipefail
+
+############################################
+# 2. Build commit_range and diff
+############################################
+if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
+  commit_range="$local_sha"
+else
+  commit_range="$remote_sha..$local_sha"
+fi
+echo "[DEBUG] commit_range = '$commit_range'"
+
+diff_all="$(git diff "$commit_range")"
+echo "[DEBUG] diff length = $(echo "$diff_all" | wc -l) lines"
+
+############################################
+# 3. Regex patterns to detect sensitive content in diff
+############################################
+patterns=(
+  'sk-[A-Za-z0-9]{20,}'
+  'AWS_[A-Z_]*ACCESS_KEY'
+  '-----BEGIN (RSA|EC|PRIVATE) KEY-----'
+  'Authorization:[[:space:]]*Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
+  'os\.environ\[[[:space:]]*["'\''][A-Za-z0-9_]+["'\''][[:space:]]*\][[:space:]]*='
+)
+
+RED='\033[0;31m'; YEL='\033[1;33m'; GRN='\033[0;32m'; NC='\033[0m'
+
+############################################
+# 4. Scan diff for any hardcoded secret patterns
+############################################
+for rgx in "${patterns[@]}"; do
+  if echo "$diff_all" | grep -E -i -q -- "$rgx"; then
+    printf "${RED}❌  Detected sensitive content in diff ◀ pattern: %s${NC}\n" "$rgx"
+    exit 1
+  fi
+done
+
+############################################
+# 5. Ensure current .gitignore ignores all `.env*` files
+############################################
+if ! grep -R -E -q -- '(^|/)\.env(\*|$)' .gitignore; then
+  printf "${RED}❌  Current .gitignore is missing a rule to ignore .env files${NC}\n"
+  printf "${YEL}Push aborted – please add a '*.env*' or '.env' entry into .gitignore.${NC}\n"
+  exit 1
+fi
+
+############################################
+# 6. Deep‐scan up to MAX_COMMITS for tracked `.env` or blob secrets
+############################################
+MAX_COMMITS=200
+printf "${YEL}🔍  Deep‐scanning up to %d commits in range %s ...${NC}\n" "$MAX_COMMITS" "$commit_range"
+
+commits_to_scan=()
+while IFS= read -r c; do
+  commits_to_scan+=("$c")
+done < <(git rev-list --max-count="$MAX_COMMITS" "$commit_range")
+
+for commit in "${commits_to_scan[@]}"; do
+  echo "[DEBUG] scanning commit $commit ..."
+  if git ls-tree -r --name-only "$commit" | grep -qE '(^|/)\.env([^/]*$)'; then
+    printf "${RED}❌  Commit %s contains a tracked .env-like file${NC}\n" "$commit"
+    git ls-tree -r --name-only "$commit" | grep -E '(^|/)\.env([^/]*$)' | sed 's/^/     • /'
+    exit 1
+  fi
+
+  for rgx in "${patterns[@]}"; do
+    if git grep -I -n -E -i -- "$rgx" "$commit" > /dev/null 2>&1; then
+      printf "${RED}❌  Secret pattern found in commit %s ◀ %s${NC}\n" "$commit" "$rgx"
+      git grep -I -n -E -i -- "$rgx" "$commit" | head -3 | sed 's/^/     • /'
+      exit 1
+    fi
+  done
+done
+
+############################################
+# 7. All checks passed, allow the push
+############################################
+printf "${GRN}✓  All checks passed; push allowed.${NC}\n"
+exit 0

@@ -403,10 +403,6 @@ if __name__ == "__main__":
     import dotenv,mllm
     dotenv.load_dotenv()
     
-    Authorization = "Bearer abcdefghijklmnopqrstuvwxyz123456"
-
-
-   
 
     mllm.config.default_models.expensive = "gpt-4o"
     # arxiv_url = "https://arxiv.org/html/2401.11314v2"
