@@ -26,7 +26,7 @@ high_quality_arxiv_summary = False
 not_download_figures_table = False
 
 class NatureNode(Node):
-    def __init__(self, source: BeautifulSoup | Tag, id: str, label: str, title: str = "",
+    def __init__(self, source, id: str, label: str, title: str = "",
                  content: str = ""):
         super().__init__(title, content)
         self._label: str = label

@@ -227,11 +227,11 @@ def build_tree(parent: ArxivNode):
 
 
 def url_to_tree(url: str) -> ArxivNode:
-    os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
     global arxiv_url
     arxiv_url = url
+    print(f"Processing {url}")
     html_source = requests.get(url).text
-
+    print("HTML source fetched successfully.",html_source[:1000])  # Print first 1000 characters for debugging
     # try:
     #     with open("cached_page.html", "r", encoding="utf-8") as f:
     #         html_source = f.read()
@@ -278,7 +278,8 @@ def generate_summary_of_abstract(root: Node):
                 return abstract_summary, short_summary
             except Exception as e:
                 abstract = node.content
-            return abstract
+                print(f"Error generating summary for abstract: {e}")
+            return abstract, "error"
         else:
             continue
 
@@ -368,7 +369,6 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
 
 
 def generate_tree_with_url(url: str, host: str) -> str:
-    os.environ["OPENAI_API_KEY"] = "sk-proj-yswCDVDgrwrvOvgWWZgbT3BlbkFJXgPdF8oQ6Y1qc70ZFPrq"
     arxiv_url = url  # "https://arxiv.org/html/2407.12105v2"
     doc = url_to_tree(arxiv_url)
     abstract_summary, short_summary = generate_summary_of_abstract(doc)
@@ -400,7 +400,9 @@ def generate_tree_with_url(url: str, host: str) -> str:
 
 #
 if __name__ == "__main__":
-
+    import dotenv,mllm
+    dotenv.load_dotenv()
+    mllm.config.default_models.expensive = "gpt-4o"
     # arxiv_url = "https://arxiv.org/html/2401.11314v2"
     # arxiv_url = "https://arxiv.org/html/2404.04326v1"
     # arxiv_url = "https://arxiv.org/html/2406.07003v1"
@@ -412,11 +414,11 @@ if __name__ == "__main__":
     # arxiv_url = "https://arxiv.org/html/2408.05212v1"
 
     # arxiv_url = "https://arxiv.org/html/2410.01672v2"
-    arxiv_url = "https://arxiv.org/html/2408.08463v1"
+    import litellm
+    litellm._turn_on_debug()
+    arxiv_url = "https://arxiv.org/html/2410.15778v2"
     # arxiv_url = "https://arxiv.org/html/2410.09290v1"
     # arxiv_url = "https://arxiv.org/html/2307.02477v3"
-    arxiv_url = "dee"
-
     high_quality_arxiv_summary = True
 
     doc = url_to_tree(arxiv_url)
