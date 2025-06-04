@@ -6,3 +6,4 @@ temp
 setup.py
 .run
 **/.pytest_cache/
+.env
