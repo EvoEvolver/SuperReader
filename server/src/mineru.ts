@@ -27,7 +27,10 @@ async function submitParsingJob(fileUrl: string): Promise<string> {
     };
 
     const res = await axios.post(url, data, {headers});
-    return res.data.data.task_id;
+    if (res.data?.data?.task_id) {
+        return res.data.data.task_id;
+    }
+    throw new Error(`Invalid response: task_id not found. Response data: ${JSON.stringify(res.data)}`);
 }
 
 async function waitForParsingResult(taskId: string): Promise<string> {
