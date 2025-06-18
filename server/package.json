@@ -2,7 +2,7 @@
   "name": "reader_server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.ts",
+  "main": "src/index.ts",
   "scripts": {
     "dev": "NODE_ENV=development nodemon src/index.ts",
     "build": "node build.js"
