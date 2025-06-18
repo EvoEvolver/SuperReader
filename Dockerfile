@@ -1,10 +1,5 @@
 # Start from Node.js base image
-FROM node:20
-
-# Install Python
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip && \
-    apt-get clean
+FROM nikolaik/python-nodejs:python3.10-nodejs24
 
 WORKDIR /app
 
