@@ -11,4 +11,4 @@ RUN cd server && npm install
 
 RUN npm run --prefix server build
 
-CMD node server/dist/index.js & gunicorn --workers 1 --threads 4 --bind 0.0.0.0:8080 reader.main:app & wait
+CMD node server/dist/index.js & gunicorn --workers 1 --threads 1 --bind 0.0.0.0:8080 reader.main:app & wait

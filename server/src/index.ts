@@ -54,7 +54,7 @@ app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Ex
     // Calculate SHA-256 hash of the file
     const hash = crypto.createHash('sha256');
     hash.update(req.file.buffer);
-    const objectName = hash.digest('hex')+".pdf"
+    const objectName = hash.digest('hex') + ".pdf"
 
     const bucketName = "pdf"
 
@@ -92,6 +92,11 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
     }).catch((e) => {
         job_status[job_id] = JobStatus.FAILED;
         console.error("Pipeline failed:", e);
+        res.status(500).json({
+            status: 'error',
+            message: 'Pipeline processing failed',
+            job_id: job_id
+        });
     })
     // Add response
     res.json({status: 'success', message: 'PDF processing started', job_id: job_id});
@@ -122,21 +127,22 @@ app.post('/result', async (req: Request, res: Response) => {
     const status = job_status[job_id];
     if (!status) {
         res.status(404).json({status: 'error'});
-        return
+        return;
     }
     if (status === JobStatus.PROCESSING) {
         res.json({status: 'processing', message: 'Still processing'});
-        return
+        return;
     }
     if (status === JobStatus.ERROR) {
         res.json({status: 'error', message: 'Error in processing'});
-        return
+        return;
     }
     if (status === JobStatus.COMPLETE) {
         const tree_url = await redis.get("tree_url_for_job_" + job_id);
         res.json({status: 'success', tree_url: tree_url});
-        return
+        return;
     }
+    // Handle unhandled statuses (e.g., FAILED)
+    res.status(500).json({status: 'error', message: 'Unknown or failed job status'});
 });
-
 
