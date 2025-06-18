@@ -1,14 +1,15 @@
-FROM python:3.10
+# Start from Node.js base image
+FROM node:20
+
+# Install Python
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    apt-get clean
 
 WORKDIR /app
 
 COPY . .
 
-# Install Node.js and npm
-RUN apt-get update && \
-    apt-get install -y curl && \
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs \
 
 RUN pip install -r requirements.txt
 
