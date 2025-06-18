@@ -4,3 +4,4 @@ Forest@git+https://github.com/EvoEvolver/Forest
 markdownify
 flask
 redis
+gunicorn
