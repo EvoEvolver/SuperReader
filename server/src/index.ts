@@ -85,6 +85,11 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
     }
     const job_id = randomUUID()
     job_status[job_id] = JobStatus.PROCESSING
+
+    // Send response immediately after initializing the job
+    res.json({status: 'success', message: 'PDF processing started', job_id: job_id});
+
+    // Continue with async processing after sending response
     mineruPipeline(file_url).then((result) => {
         axios.post('http://localhost:8080/generate_from_html', {
             html_source: result
@@ -99,15 +104,7 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
     }).catch((e) => {
         job_status[job_id] = JobStatus.FAILED;
         console.error("Pipeline failed:", e);
-        res.status(500).json({
-            status: 'error',
-            message: 'Pipeline processing failed',
-            job_id: job_id
-        });
-        return;
-    })
-    // Add response
-    res.json({status: 'success', message: 'PDF processing started', job_id: job_id});
+    });
 });
 
 app.post('/submit/nature_to_tree', (req: Request, res: Response) => {
