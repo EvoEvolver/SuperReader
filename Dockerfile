@@ -11,4 +11,4 @@ RUN cd server && npm install
 
 RUN npm run --prefix server build
 
-CMD node server/dist/index.js & python server/main.py & wait
+CMD node server/dist/index.js & python reader/main.py & wait
