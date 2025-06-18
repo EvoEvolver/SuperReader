@@ -40,16 +40,21 @@ app.use(express.json());
 const upload = multer({storage: multer.memoryStorage()});
 
 
-app.post('/upload', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
+app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     if (!req.file) {
         res.status(400).send('No file uploaded');
         return;
     }
-
+    // Check MIME type and extension
+    const isPdf = req.file.mimetype === 'application/pdf' && req.file.originalname.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+        res.status(400).send('Only PDF files are allowed');
+        return;
+    }
     // Calculate SHA-256 hash of the file
     const hash = crypto.createHash('sha256');
     hash.update(req.file.buffer);
-    const objectName = hash.digest('hex');
+    const objectName = hash.digest('hex')+".pdf"
 
     const bucketName = "pdf"
 
@@ -57,7 +62,6 @@ app.post('/upload', upload.single('file'), async (req: Request & { file?: Expres
         await minioClient.putObject(bucketName, objectName, req.file.buffer);
         res.json({
             status: 'success',
-            objectName: objectName,
             url: `${process.env.MINIO_ENDPOINT}/${bucketName}/${objectName}`
         });
     } catch (error) {
