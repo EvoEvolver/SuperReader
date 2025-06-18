@@ -16,15 +16,17 @@ async function fetchHtmlContent() {
     }
 }
 
+const hostname = "https://htmlworker.treer.ai"
+//const hostname = "http://localhost:8081"
 
 fetchHtmlContent().then((html_source) => {
-    axios.post('http://localhost:8081/submit/nature_to_tree', {
+    axios.post(hostname+'/submit/nature_to_tree', {
         paper_url: paper_url,
         html_source: html_source
     }).then(async (res) => {
         const job_id = res.data["job_id"]
     while (true) {
-        let result = await axios.post('http://localhost:8081/result', {job_id: job_id})
+        let result = await axios.post(hostname+'/result', {job_id: job_id})
         console.log(result.data)
         await new Promise(resolve => setTimeout(resolve, 1000));
         if(result.data["tree_url"]){

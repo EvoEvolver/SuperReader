@@ -8,7 +8,7 @@ import {createClient} from "redis";
 dotenv.config();
 
 const app: Express = express();
-const port = process.env.PORT || 8081;
+const port = 8081;
 const redis = createClient({
     url: process.env.REDIS_URL || 'redis://localhost:6379'
 });
