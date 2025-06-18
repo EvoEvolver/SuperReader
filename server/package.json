@@ -1,0 +1,33 @@
+{
+  "name": "reader_server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "NODE_ENV=development nodemon src/index.ts",
+    "build": "node build.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "esbuild": "^0.24.2",
+    "nodemon": "^3.1.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@types/node": "^24.0.3",
+    "adm-zip": "^0.5.16",
+    "axios": "^1.10.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "katex": "^0.16.22",
+    "markdown-it": "^14.1.0",
+    "markdown-it-texmath": "^1.0.0",
+    "minio": "^8.0.5",
+    "mongodb": "^6.16.0",
+    "redis": "^5.5.6"
+  },
+  "packageManager": "pnpm@10.11.1+sha512.e519b9f7639869dc8d5c3c5dfef73b3f091094b0a006d7317353c72b124e80e1afd429732e28705ad6bfa1ee879c1fce46c128ccebd3192101f43dd67c667912"
+}

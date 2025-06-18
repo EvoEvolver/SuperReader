@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from fibers.tree import Attr, Node
+from reader.nature_paper_to_tree import PaperNode
+
 if TYPE_CHECKING:
     from reader.arxiv_paper_to_tree import ArxivNode
 
@@ -12,10 +14,6 @@ class Reference(Attr):
 
     def render(self, rendered):
         ...
-        #contents = Reference.get(self.node).contents
-
-        # del rendered.tabs["contents"]
-        #rendered.tools[0]["reference"] = "<br/>".join(contents)
 
 
 def set_reference_obj(node: Node, contents: list[str]):
@@ -30,9 +28,8 @@ class RelatedFigures(Attr):
 
     def render(self, rendered):
         rendered.tools[0]["figures"] = "<br/>".join(self.figures)
-        rendered.tools[0]["Chat"] = "<ChatView/>"
 
-def construct_related_figures(root: ArxivNode):
+def construct_related_figures(root: PaperNode):
     for node in root.children:
         if "section" in node._label:
             construct_related_figures(node)

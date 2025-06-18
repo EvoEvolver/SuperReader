@@ -1,0 +1,204 @@
+import html
+import re
+from typing import List
+
+import html2text
+import requests
+from bs4 import BeautifulSoup, PageElement, Tag
+
+from fibers.tree import Node
+from fibers.tree.node_attr import Attr
+
+
+class SoupInfo(Attr):
+    def __init__(self, soup: BeautifulSoup, node: Node):
+        super().__init__(node)
+        self.soup = soup
+
+    @staticmethod
+    def soup_to_content(root: Node):
+        for node in root.iter_subtree_with_dfs():
+            node.content = str(SoupInfo.get(node).soup)
+
+
+def url_to_tree(url: str) -> (Node, BeautifulSoup):
+    browser_headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+    html = requests.get(url, headers=browser_headers).text
+    return html_to_tree(html)
+
+
+def html_to_tree(html: str) -> (Node, BeautifulSoup):
+    soup = BeautifulSoup(html, "html.parser")
+    pre_process_html_tree(soup)
+    title = soup.find("title")
+    if title:
+        title = title.text
+    else:
+        title = ""
+    root = extract_article_root(soup)
+    root = html_to_raw_tree(root, title=title)
+    init_soup_info(root)
+    return root, soup
+
+
+def init_soup_info(root: Node):
+    for node in root.iter_subtree_with_dfs():
+        soup = BeautifulSoup(node.content, "html.parser")
+        if node.has_attr(SoupInfo):
+            node.get_attr(SoupInfo).soup = soup
+        else:
+            SoupInfo(soup, node)
+
+
+def pre_process_html_tree(soup: BeautifulSoup):
+    href_tags = soup.find_all('a', href=True)
+    for href_tag in href_tags:
+        href_tag['target'] = '_blank'
+    for script in soup(["script", "style"]):
+        # remove all javascript and stylesheet code
+        script.decompose()
+    redundant_tags = soup.find_all(class_=lambda x: x and 'gsl_pagenum' in x,
+                                   recursive=True)
+    for tag in redundant_tags:
+        if tag.parent and tag.parent.name == 'h2':
+            tag.decompose()
+
+    herf_tags = soup.find_all('a', recursive=True)
+    for tag in herf_tags:
+        if isinstance(tag, Tag) and tag.get('href') is not None and re.match(
+                r'^/scholar_case.+$', tag.get('href')):
+            tag['href'] = "https://scholar.google.com" + tag.get('href')
+
+
+def remove_attrs(root: Node, attrs_to_keep: List[str]):
+    for node in root.iter_subtree_with_dfs():
+        soup = SoupInfo.get(node).soup
+        for ele in soup.descendants:
+            if ele.name:
+                for attr in list(ele.attrs):
+                    if attr not in attrs_to_keep:
+                        del ele.attrs[attr]
+        node.content = html.escape(str(soup))
+
+
+def remove_elements(root: Node, elements: List[str]):
+    for node in root.iter_subtree_with_dfs():
+        soup = SoupInfo.get(node).soup
+        for ele in soup.find_all(elements):
+            ele.decompose()
+        node.content = str(soup)
+
+
+def unwrap_elements(root: Node, elements: List[str]):
+    for node in root.iter_subtree_with_dfs():
+        soup = SoupInfo.get(node).soup
+        for ele in soup.find_all(elements):
+            ele.unwrap()
+        node.content = str(soup)
+
+
+def html_to_raw_tree(soup: BeautifulSoup, title="") -> Node:
+    hn_pattern = re.compile(r"h[1-6]")
+    root = Node()
+    curr_node = root.s(title)
+    node_stack = []
+    curr_content: List[PageElement] = []
+    curr_level = -1
+    for child in soup.children:
+        child = unwrap_useless_tags(child)
+        # check whether it's hn use regex
+        if hasattr(child, "name") and child.name and hn_pattern.match(child.name):
+            set_content(curr_node, curr_content)
+            this_level = int(child.name[1])
+            if this_level > curr_level:
+                new_node = curr_node.s(child.text.strip())
+                node_stack.append((curr_node, this_level))
+            else:
+                while len(node_stack) > 0 and node_stack[-1][1] > this_level:
+                    node_stack.pop()
+                parent_node = node_stack[-1][0]
+                new_node = parent_node.s(child.text.strip())
+
+            curr_content = []
+            curr_level = this_level
+            curr_node = new_node
+        else:
+            curr_content.append(child)
+    set_content(curr_node, curr_content)
+
+    return root
+
+
+def set_content(node: Node, contents: List[PageElement]):
+    segment_contents = [""]
+    for segment in contents:
+        segment = unwrap_useless_tags(segment)
+        segment = str(segment)
+        if len(segment.strip()) == 0:
+            continue
+        segment_contents.append(segment)
+
+    if segment_contents[0] == "":
+        segment_contents.pop(0)
+
+    for i, segment in enumerate(segment_contents):
+        node.s(f"").be(segment)
+
+
+def unwrap_useless_tags(content: PageElement):
+    if not hasattr(content, "name"):
+        return content
+    if content.name in ["p", "div", "span"]:
+        # return all children
+        if len(content.contents) == 1:
+            return unwrap_useless_tags(content.contents[0])
+        return "".join([str(child) for child in content.children])
+    return content
+
+
+def bfs_on_soup(soup: BeautifulSoup):
+    queue = [([], soup)]  # queue of (path, element) pairs
+    while queue:
+        path, element = queue.pop(0)
+        if hasattr(element, 'children'):  # check for leaf elements
+            for child in element.children:
+                if child.name in ["html", "body", "div", "article", "main", "span"]:
+                    queue.append(
+                        (path + [child.name if child.name is not None else type(child)],
+                         child))
+                    yield path, child
+
+
+def extract_article_root(soup: BeautifulSoup):
+    """
+    Extract the element with most article related elements, including p, h1, h2, h3, h4, h5, h6
+    """
+    n_article_elements = []
+    elements = []
+    for path, element in bfs_on_soup(soup):
+        if element.name in ["div", "article", "html", "body", "main"]:
+            elements.append(element)
+            # count the number of article related elements
+            n_article_elements_here = 0
+            for child in element.children:
+                if child.name in ["p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote"]:
+                    n_article_elements_here += 1
+            n_article_elements.append(n_article_elements_here)
+            # print(n_article_elements_here, element.name, element.get("class"), element.get("id"))
+    # find the div with the most article related elements
+    max_n_article_elements = max(n_article_elements)
+    max_n_article_elements_index = n_article_elements.index(max_n_article_elements)
+    article_root = elements[max_n_article_elements_index]
+    return article_root
+
+
+html2text_handler = html2text.HTML2Text()
+html2text_handler.ignore_links = True
+html2text_handler.ignore_images = True
+
+
+if __name__ == "__main__":
+    doc = url_to_tree(
+        "https://scholar.google.com/scholar_case?case=16062632215534775045&q=trump&hl=en&as_sdt=2006")
+    doc.display()
