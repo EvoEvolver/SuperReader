@@ -6,12 +6,23 @@ import { existsSync } from 'fs';
 // Load .env variables
 config();
 
+// decompose the url into protocol, endpoint and port
+const url = process.env.MINIO_ENDPOINT;
+if (!url) throw new Error('MINIO_ENDPOINT environment variable is not set');
+
+const urlParts = new URL(url);
+const protocol = urlParts.protocol.replace(':', '');
+const endpoint = urlParts.hostname;
+const port = urlParts.port ? parseInt(urlParts.port) : (protocol === 'https' ? 443 : 80);
+
+
 // MinIO client setup
 const minioClient = new Client({
-  endPoint: process.env.MINIO_ENDPOINT!,
+  endPoint: endpoint,
+  port: port,
   accessKey: process.env.MINIO_ACCESS_KEY!,
   secretKey: process.env.MINIO_SECRET_KEY!,
-  useSSL: true,
+  useSSL: protocol === 'https',
 });
 
 export async function uploadFileToMinio(

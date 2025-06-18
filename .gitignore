@@ -6,5 +6,6 @@ temp
 setup.py
 .run
 **/.pytest_cache/
-.env
+reader/.env
+**/.llm_cache/**
 .env.*
