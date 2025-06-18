@@ -76,6 +76,13 @@ app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Ex
 
 app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
     const file_url = req.body.file_url
+    if (!file_url){
+        res.status(400).json({
+            status: 'error',
+            message: 'Missing file_url parameter'
+        });
+        return;
+    }
     const job_id = randomUUID()
     job_status[job_id] = JobStatus.PROCESSING
     mineruPipeline(file_url).then((result) => {
@@ -97,6 +104,7 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
             message: 'Pipeline processing failed',
             job_id: job_id
         });
+        return;
     })
     // Add response
     res.json({status: 'success', message: 'PDF processing started', job_id: job_id});
