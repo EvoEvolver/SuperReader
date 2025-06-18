@@ -6,7 +6,9 @@ import mllm
 from flask import Flask, request, jsonify
 
 from fibers.gui.renderer import Renderer
-from forest.tree import push_tree_data
+import forest
+import forest.tree
+
 from reader.build_html_tree import build_html_tree
 from reader.nature_paper_to_tree import run_nature_paper_to_tree
 
@@ -32,7 +34,7 @@ def generate_from_nature():
     # Process the request
     doc = run_nature_paper_to_tree(html_source, link)
     tree_data = Renderer().render_to_json(doc)
-    tree_id = push_tree_data(tree_data, forest_host)
+    tree_id = forest.tree.push_tree_data(tree_data, forest_host)
 
     response_data = {
         "tree_url": f"{forest_host}/?id={tree_id}"
@@ -46,7 +48,7 @@ def generate_from_html():
     html_source = req["html_source"]
     doc = build_html_tree(html_source)
     tree_data = Renderer().render_to_json(doc)
-    tree_id = push_tree_data(tree_data, forest_host)
+    tree_id = forest.tree.push_tree_data(tree_data, forest_host)
     response_data = {
         "tree_url": f"{forest_host}?id={tree_id}"
     }

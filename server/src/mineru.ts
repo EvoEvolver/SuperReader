@@ -106,10 +106,3 @@ export async function mineruPipeline(fileUrl: string) {
     //fs.writeFileSync(path.join(outputDir, 'processed.html'), htmlContent, 'utf-8');
     return htmlContent
 }
-
-// Only run if directly executed
-if (require.main === module) {
-    const fileUrl =
-        'https://bucket-production-f992.up.railway.app/treer/f37a5906ba8ec5a92b637fbd0bf2c07c72bf64784556b24b403263e827b093b7.pdf';
-    mineruPipeline(fileUrl).then((res)=>{console.log(res)}).catch(console.error);
-}
