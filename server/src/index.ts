@@ -4,6 +4,10 @@ import {mineruPipeline} from "./mineru";
 import axios from 'axios';
 import {randomUUID} from "node:crypto";
 import {createClient} from "redis";
+import {minioClient} from "./minio_upload";
+import multer from 'multer';
+import crypto from 'crypto';
+
 
 dotenv.config();
 
@@ -31,6 +35,40 @@ enum JobStatus {
 const job_status: Map<string, JobStatus> = new Map()
 
 app.use(express.json());
+
+// Multer for handling file uploads
+const upload = multer({storage: multer.memoryStorage()});
+
+
+app.post('/upload', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
+    if (!req.file) {
+        res.status(400).send('No file uploaded');
+        return;
+    }
+
+    // Calculate SHA-256 hash of the file
+    const hash = crypto.createHash('sha256');
+    hash.update(req.file.buffer);
+    const objectName = hash.digest('hex');
+
+    const bucketName = "pdf"
+
+    try {
+        await minioClient.putObject(bucketName, objectName, req.file.buffer);
+        res.json({
+            status: 'success',
+            objectName: objectName,
+            url: `${process.env.MINIO_ENDPOINT}/${bucketName}/${objectName}`
+        });
+    } catch (error) {
+        console.error('Error uploading to Minio:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Failed to upload file'
+        });
+    }
+});
+
 
 app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
     const file_url = req.body.file_url

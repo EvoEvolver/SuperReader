@@ -16,7 +16,7 @@ async function fetchHtmlContent() {
     }
 }
 
-const hostname = "https://htmlworker.treer.ai"
+const hostname = "https://worker.treer.ai"
 //const hostname = "http://localhost:8081"
 
 fetchHtmlContent().then((html_source) => {

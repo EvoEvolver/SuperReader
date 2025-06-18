@@ -17,7 +17,7 @@ const port = urlParts.port ? parseInt(urlParts.port) : (protocol === 'https' ? 4
 
 
 // MinIO client setup
-const minioClient = new Client({
+export const minioClient = new Client({
   endPoint: endpoint,
   port: port,
   accessKey: process.env.MINIO_ACCESS_KEY!,

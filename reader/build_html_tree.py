@@ -2,7 +2,8 @@ from mllm import Chat
 
 from fibers.tree import Node
 from fibers.utils.mapping import node_map_with_dependency
-from forest.tree import push_tree
+from reader.build_summary import generate_summary_for_leaf_node, \
+    generate_summary_for_section_node
 from reader.html_to_raw_tree import html_to_tree
 from reader.summary import Summary
 
@@ -19,12 +20,6 @@ def generate_summary_for_node(node: Node) -> bool:
         if Summary not in node.attrs:
             Summary.get(node).content = None
     return True
-
-
-
-
-
-
 
 
 def build_html_tree(html_source):
