@@ -20,6 +20,7 @@ dotenv.load_dotenv()
 app = Flask(__name__)
 # Handle X-Forwarded-* headers from reverse proxies
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 10 MB
 
 # Configure MLLM and LiteLLM
 mllm.config.default_models.expensive = "gpt-4o"
