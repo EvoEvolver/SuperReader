@@ -2,7 +2,7 @@ MinimalLLM
 Fibers@git+https://github.com/EvoEvolver/Fibers
 Forest@git+https://github.com/EvoEvolver/Forest
 markdownify
-flask
+fastapi
 redis
 gunicorn
 pymongo
