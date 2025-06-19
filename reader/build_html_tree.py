@@ -1,5 +1,5 @@
 from mllm import Chat
-from tenacity import retry, stop_after_attempt
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from fibers.tree import Node
 from fibers.utils.mapping import node_map_with_dependency
@@ -55,8 +55,7 @@ def build_html_tree(html_source):
 
     return doc_root
 
-
-@retry(stop=stop_after_attempt(3))
+@retry(stop=stop_after_attempt(4), wait=wait_fixed(2))
 def generate_tree_structure(html_source):
     doc, soup = html_to_tree(html_source)
     doc = doc.first_child()
@@ -67,8 +66,11 @@ def generate_tree_structure(html_source):
     sections_in_prompt = "".join(subsections)
 
     prompt = """
-You are required to reconstruct the nested section structure of the document based on the following titles of subsections:
+You are required to reconstruct the nested section structure of a document based on the titles of its sections.
+Some section listed should be the subsection of other section. You are required to reconstruct this hierarchy.
+<sections>
 """ + f"{sections_in_prompt}" + """
+</sections>
 You must reconstruct the tree structure based on their titles, ensuring that the hierarchy is maintained.
 Notice that you must not change the order of the subsections, and you must not add any additional information.
 You are required to output a JSON object that represents the tree structure of the document.
@@ -79,17 +81,17 @@ The JSON object should have the following format:
     "children": [
         {
             "title": "Subsection Title 1",
-            "children": []
+            "children": [...]
         },
         {
             "title": "Subsection Title 2",
-            "children": []
+            "children": [...]
         }
     ]
 }
 ```
 Additional notice:
-- The number of titles must match the number of subsections provided
+- The number of titles must match the number of sections provided. You should not add or remove any sections.
 """
     chat = Chat(dedent=True)
     chat += prompt
