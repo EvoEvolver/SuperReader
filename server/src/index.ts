@@ -88,7 +88,8 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
     // Don't add await before
     mineruPipeline(file_url).then((result) => {
         axios.post('http://localhost:8080/generate_from_html', {
-            html_source: result
+            html_source: result,
+            file_url: file_url
         }).then(async (res) => {
             const tree_url = res.data["tree_url"]
             await redisClient.set("tree_url_for_job_" + job_id, tree_url)

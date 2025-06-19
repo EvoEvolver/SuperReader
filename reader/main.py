@@ -50,6 +50,7 @@ class NatureRequest(BaseModel):
 
 class HTMLRequest(BaseModel):
     html_source: str
+    file_url: str
 
 class TreeResponse(BaseModel):
     status: str
@@ -97,7 +98,7 @@ async def generate_from_nature(request: NatureRequest):
 @app.post("/generate_from_html", response_model=TreeResponse)
 async def generate_from_html(request: HTMLRequest):
     cache_collection = db["pdf_papers"]
-    cached_result = cache_collection.find_one({"html_source": request.html_source})
+    cached_result = cache_collection.find_one({"file_url": request.file_url})
 
     if cached_result:
         return TreeResponse(
@@ -114,6 +115,7 @@ async def generate_from_html(request: HTMLRequest):
     # Store in cache
     cache_collection.insert_one({
         "html_source": request.html_source,
+        "file_url": request.file_url,
         "tree_url": f"{forest_host}?id={tree_id}",
         "tree_id": tree_id,
         "tree_data": tree_data
