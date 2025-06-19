@@ -61,11 +61,14 @@ def generate_tree_structure(html_source):
     doc, soup = html_to_tree(html_source)
     doc = doc.first_child()
     doc.parent = None
-    subsections = [node.title for node in doc.children]
+    subsections = [node.title+"\n" for node in doc.children]
     subsection_nodes = [node for node in doc.children]
+
+    sections_in_prompt = "".join(subsections)
+
     prompt = """
 You are required to reconstruct the nested section structure of the document based on the following titles of subsections:
-""" + f"{subsections}" + """
+""" + f"{sections_in_prompt}" + """
 You must reconstruct the tree structure based on their titles, ensuring that the hierarchy is maintained.
 Notice that you must not change the order of the subsections, and you must not add any additional information.
 You are required to output a JSON object that represents the tree structure of the document.
@@ -85,6 +88,8 @@ The JSON object should have the following format:
     ]
 }
 ```
+Additional notice:
+- The number of titles must match the number of subsections provided
 """
     chat = Chat(dedent=True)
     chat += prompt
