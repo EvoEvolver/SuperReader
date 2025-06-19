@@ -5,3 +5,5 @@ markdownify
 flask
 redis
 gunicorn
+pymongo
+tenacity

@@ -3,20 +3,16 @@ import dotenv from 'dotenv';
 import {mineruPipeline} from "./mineru";
 import axios from 'axios';
 import {randomUUID} from "node:crypto";
-import {createClient} from "redis";
 import {minioClient} from "./minio_upload";
 import multer from 'multer';
 import crypto from 'crypto';
+import {redisClient} from "./redis";
 
 
 dotenv.config();
 
 const app: Express = express();
 const port = 8081;
-const redis = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
-redis.connect();
 
 app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb'}));
@@ -24,6 +20,7 @@ app.use(express.urlencoded({limit: '50mb'}));
 app.listen(port, () => {
     console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
 });
+
 
 enum JobStatus {
     PROCESSING = "processing",
@@ -76,7 +73,7 @@ app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Ex
 
 app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
     const file_url = req.body.file_url
-    if (!file_url){
+    if (!file_url) {
         res.status(400).json({
             status: 'error',
             message: 'Missing file_url parameter'
@@ -94,7 +91,7 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
             html_source: result
         }).then(async (res) => {
             const tree_url = res.data["tree_url"]
-            await redis.set("tree_url_for_job_" + job_id, tree_url)
+            await redisClient.set("tree_url_for_job_" + job_id, tree_url)
             job_status[job_id] = JobStatus.COMPLETE;
         }).catch((error) => {
             job_status[job_id] = JobStatus.ERROR;
@@ -119,7 +116,7 @@ app.post('/submit/nature_to_tree', (req: Request, res: Response) => {
         html_source: html_source
     }).then(async (res) => {
         const tree_url = res.data["tree_url"]
-        await redis.set("tree_url_for_job_" + job_id, tree_url)
+        await redisClient.set("tree_url_for_job_" + job_id, tree_url)
         job_status[job_id] = JobStatus.COMPLETE;
     }).catch((error) => {
         job_status[job_id] = JobStatus.ERROR;
@@ -145,7 +142,7 @@ app.post('/result', async (req: Request, res: Response) => {
         return;
     }
     if (status === JobStatus.COMPLETE) {
-        const tree_url = await redis.get("tree_url_for_job_" + job_id);
+        const tree_url = await redisClient.get("tree_url_for_job_" + job_id);
         res.json({status: 'success', tree_url: tree_url});
         return;
     }

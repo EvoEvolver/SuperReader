@@ -6,15 +6,19 @@ import litellm
 import mllm
 import requests
 from flask import Flask, request, jsonify
+from pymongo import MongoClient
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-import forest
 from fibers.gui.renderer import Renderer
 from reader.build_html_tree import build_html_tree
 from reader.nature_paper_to_tree import run_nature_paper_to_tree
 
 # Load environment variables
 dotenv.load_dotenv()
+client = MongoClient(os.environ.get("MONGO_URL"))
+
+# Select database and collection
+db = client["tree_gen_cache"]
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -56,13 +60,34 @@ def generate_from_nature():
         if not all([link, html_source]):
             return jsonify({"error": "Missing required fields"}), 400
 
+        # Check cache first
+        cache_collection = db["nature_papers"]
+        cached_result = cache_collection.find_one({"paper_url": link})
+
+        if cached_result:
+            return jsonify({
+                "status": "success",
+                "tree_url": cached_result["tree_url"],
+                "cached": True
+            }), 200
+
+        # If not in cache, generate new tree
         doc = run_nature_paper_to_tree(html_source, link)
         tree_data = Renderer().render_to_json(doc)
         tree_id = push_tree_data(tree_data, forest_host, admin_token)
 
+        # Store in cache
+        cache_collection.insert_one({
+            "paper_url": link,
+            "tree_url": f"{forest_host}/?id={tree_id}",
+            "tree_id": tree_id,
+            "tree_data": tree_data
+        })
+
         return jsonify({
             "status": "success",
-            "tree_url": f"{forest_host}/?id={tree_id}"
+            "tree_url": f"{forest_host}/?id={tree_id}",
+            "cached": False
         }), 200
     except Exception as e:
         return jsonify({
@@ -82,13 +107,34 @@ def generate_from_html():
         if not html_source:
             return jsonify({"error": "Missing html_source"}), 400
 
+        # Check cache first
+        cache_collection = db["pdf_papers"]
+        cached_result = cache_collection.find_one({"html_source": html_source})
+
+        if cached_result:
+            return jsonify({
+                "status": "success",
+                "tree_url": cached_result["tree_url"],
+                "cached": True
+            }), 200
+
+        # If not in cache, generate new tree
         doc = build_html_tree(html_source)
         tree_data = Renderer().render_to_json(doc)
         tree_id = push_tree_data(tree_data, forest_host, admin_token)
 
+        # Store in cache
+        cache_collection.insert_one({
+            "html_source": html_source,
+            "tree_url": f"{forest_host}?id={tree_id}",
+            "tree_id": tree_id,
+            "tree_data": tree_data
+        })
+
         return jsonify({
             "status": "success",
-            "tree_url": f"{forest_host}?id={tree_id}"
+            "tree_url": f"{forest_host}?id={tree_id}",
+            "cached": False
         }), 200
     except Exception as e:
         return jsonify({

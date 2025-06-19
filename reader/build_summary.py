@@ -1,3 +1,5 @@
+import os
+
 from markdownify import markdownify
 from mllm import Chat
 
@@ -5,6 +7,8 @@ from fibers.tree import Node
 from reader.nature_paper_to_tree import PaperNode
 from reader.summary import Summary
 high_quality_arxiv_summary = False
+from mllm.cache.cache_service import caching
+caching._cache_kv.inactive = False if os.environ.get("RAILWAY_PUBLIC_DOMAIN") is None else True
 
 
 def generate_summary_of_abstract(root: Node):

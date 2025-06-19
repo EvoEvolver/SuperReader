@@ -46,7 +46,7 @@ async function waitForParsingResult(taskId: string): Promise<string> {
 
         if (state === 'done') return res.data.data.full_zip_url;
         if (state === 'failed') throw new Error('Parsing failed.');
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
 }
 
