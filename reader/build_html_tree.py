@@ -22,6 +22,7 @@ def generate_summary_for_node(node: Node) -> bool:
             Summary.get(node).content = None
     return True
 
+small_node_limit = 1000
 
 def build_html_tree(html_source):
     doc_root = generate_tree_structure(html_source)
@@ -33,7 +34,7 @@ def build_html_tree(html_source):
             if i + 1 == len(node.children):
                 continue
             if child.title == "" and node.children[i + 1].title == "":
-                if len(node.children[i].content) < 5000:
+                if len(node.children[i].content) < small_node_limit:
                     node.children[i + 1].content = node.children[i].content + "<br/>" + \
                                                    node.children[
                                                        i + 1].content
