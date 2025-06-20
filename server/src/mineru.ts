@@ -39,6 +39,9 @@ async function waitForParsingResult(taskId: string): Promise<string> {
         'Authorization': `Bearer ${process.env.MINERU_TOKEN}`,
     };
 
+    const request_period = 2000 // 2s
+    const max_time_to_wait = 10 * 60 * 1000 // 10min
+    let time_waited = 0
     while (true) {
         const res = await axios.get(`https://mineru.net/api/v4/extract/task/${taskId}`, {headers});
         const state = res.data.data.state;
@@ -46,7 +49,11 @@ async function waitForParsingResult(taskId: string): Promise<string> {
 
         if (state === 'done') return res.data.data.full_zip_url;
         if (state === 'failed') throw new Error('Parsing failed.');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, request_period));
+        time_waited += request_period
+        if (time_waited > max_time_to_wait) {
+            throw new Error('Parsing failed.');
+        }
     }
 }
 
@@ -104,7 +111,7 @@ export async function mineruPipeline(fileUrl: string) {
     const htmlContent = `<html><head><meta charset="UTF-8"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css"></head><body><article>${md.render(markdownContent)}</article></body></html>`;
 
     // remove the directory outputDir
-    await fs.promises.rm(outputDir, { recursive: true, force: true });
+    await fs.promises.rm(outputDir, {recursive: true, force: true});
 
     //fs.writeFileSync(path.join(outputDir, 'processed.html'), htmlContent, 'utf-8');
     return htmlContent

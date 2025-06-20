@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pymongo import MongoClient
 
+from fibers.gui.forest_connector.forest_connector import TreeData
 from fibers.gui.renderer import Renderer
 from reader.build_html_tree import build_html_tree
 from reader.nature_paper_to_tree import run_nature_paper_to_tree
@@ -111,24 +112,23 @@ async def generate_from_html(request: HTMLRequest):
     doc = build_html_tree(request.html_source)
     tree_data = Renderer().render_to_json(doc)
     tree_id = push_tree_data(tree_data, forest_host, admin_token)
-
+    tree_url = f"{forest_host}?id={tree_id}"
     # Store in cache
     cache_collection.insert_one({
         "html_source": request.html_source,
         "file_url": request.file_url,
-        "tree_url": f"{forest_host}?id={tree_id}",
+        "tree_url": tree_url,
         "tree_id": tree_id,
         "tree_data": tree_data
     })
 
     return TreeResponse(
         status="success",
-        tree_url=f"{forest_host}?id={tree_id}",
+        tree_url=tree_url,
         cached=False
     )
 
-def push_tree_data(tree_data: dict, host: str = "http://0.0.0.0:29999", token: Optional[str] = None) -> str:
-    url = f'{host}/api/createTree'
+def push_tree_data(tree_data: TreeData, host: str = "http://0.0.0.0:29999", token: Optional[str] = None) -> str:
     root_id = tree_data["rootId"]
     payload = json.dumps({
         "tree": tree_data,
@@ -140,7 +140,7 @@ def push_tree_data(tree_data: dict, host: str = "http://0.0.0.0:29999", token: O
     if token is not None:
         headers['Authorization'] = f'Bearer {token}'
 
-    response = requests.request("PUT", url, headers=headers, data=payload)
+    response = requests.request("PUT", f'{host}/api/createTree', headers=headers, data=payload)
     try:
         response.raise_for_status()
         response_data = response.json()
