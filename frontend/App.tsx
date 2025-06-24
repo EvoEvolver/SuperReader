@@ -26,12 +26,15 @@ export function App() {
 
     useEffect(() => {
         if (!job_id) {
-            setWaitResponse({tree_url: null, status: JobStatus.ERROR, message:'no job id provided'});
+            setWaitResponse({tree_url: null, status: JobStatus.ERROR, message: 'No job id provided'});
             return;
         }
 
         const updateWaitResponse = (response: WaitResponse) => {
             setWaitResponse(response);
+            if (response.status === JobStatus.COMPLETE && response.tree_url) {
+                window.open(response.tree_url, '_self');
+            }
         };
 
         wait_for_result(job_id, updateWaitResponse);

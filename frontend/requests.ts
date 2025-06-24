@@ -1,5 +1,5 @@
-//const worker_endpoint = "https://worker.treer.ai"
-const worker_endpoint = "http://localhost:8081"
+const worker_endpoint = "https://worker.treer.ai"
+//const worker_endpoint = "http://localhost:8081"
 
 export enum JobStatus {
     PROCESSING = "processing",
