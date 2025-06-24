@@ -7,6 +7,7 @@ import {minioClient} from "./minio_upload";
 import multer from 'multer';
 import crypto from 'crypto';
 import {redisClient} from "./redis";
+import path from "path";
 
 
 dotenv.config();
@@ -36,6 +37,9 @@ app.use(express.json());
 // Multer for handling file uploads
 const upload = multer({storage: multer.memoryStorage()});
 
+app.get('/wait', (_req, res) => {
+    res.sendFile(path.join(__dirname, frontendRoot));
+});
 
 app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     if (!req.file) {
