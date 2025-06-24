@@ -5,7 +5,7 @@ export enum JobStatus {
     FAILED = "failed"
 }
 
-export interface JobResult {
+export interface JobProgress {
     status: JobStatus,
     message?: string,
     treeUrl?: string
@@ -14,15 +14,15 @@ export interface JobResult {
 
 import {redisClient} from "./redis";
 
-export async function setJobStatus(jobId: string, result: JobResult): Promise<void> {
+export async function setJobProgress(jobId: string, result: JobProgress): Promise<void> {
     await redisClient.set("tree_worker_job_status-"+jobId, JSON.stringify(result));
 }
 
-export async function getJobStatus(jobId: string): Promise<JobResult | null> {
+export async function getJobProgress(jobId: string): Promise<JobProgress | null> {
     const result = await redisClient.get("tree_worker_job_status-"+jobId);
     if (!result) {
         return null;
     }
     // @ts-ignore
-    return JSON.parse(result) as JobResult;
+    return JSON.parse(result) as JobProgress;
 }

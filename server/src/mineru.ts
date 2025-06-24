@@ -8,7 +8,7 @@ import texmath from 'markdown-it-texmath';
 import {URL} from 'url';
 import {uploadFileToMinio} from './minio_upload';
 import katex from "katex";
-import {JobStatus, setJobStatus} from "./jobStatus";
+import {JobStatus, setJobProgress} from "./jobStatus";
 
 dotenv.config();
 
@@ -91,12 +91,12 @@ function processMarkdownImages(mdPath: string, urlPrefix: string): string[] {
 
 export async function mineruPipeline(fileUrl: string, jobId: string) {
     const taskId = await submitParsingJob(fileUrl);
-    setJobStatus(jobId, {
+    setJobProgress(jobId, {
         status: JobStatus.PROCESSING,
         message: "Submitted pdf for parsing"
     })
     const resultUrl = await waitForParsingResult(taskId);
-    setJobStatus(jobId, {
+    setJobProgress(jobId, {
         status: JobStatus.PROCESSING,
         message: "Parsing completed"
     })

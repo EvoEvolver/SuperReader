@@ -31,6 +31,7 @@ export function App() {
         }
 
         const updateWaitResponse = (response: WaitResponse) => {
+            console.log(response)
             if (response.status === JobStatus.COMPLETE && response.tree_url) {
                 window.open(response.tree_url, '_self');
             }

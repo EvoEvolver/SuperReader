@@ -9,7 +9,7 @@ import crypto from 'crypto';
 
 import cors from 'cors';
 import path from "path";
-import {getJobStatus, JobStatus, setJobStatus} from "./jobStatus";
+import {getJobProgress, JobStatus, setJobProgress} from "./jobStatus";
 
 let FRONTEND_DIR = process.env.FRONTEND_DIR
 if (!FRONTEND_DIR) {
@@ -84,7 +84,7 @@ async function processPdfToTree(file_url: string, job_id: string) {
         const result = await mineruPipeline(file_url, job_id);
         try {
 
-            setJobStatus(job_id, {
+            setJobProgress(job_id, {
                 status: JobStatus.PROCESSING,
                 message: "Generating the tree",
             });
@@ -96,20 +96,20 @@ async function processPdfToTree(file_url: string, job_id: string) {
 
             const tree_url = res.data["tree_url"];
 
-            setJobStatus(job_id, {
+            setJobProgress(job_id, {
                 status: JobStatus.COMPLETE,
                 message: "Finished",
                 treeUrl: tree_url
             });
         } catch (error) {
-            setJobStatus(job_id, {
+            setJobProgress(job_id, {
                 status: JobStatus.ERROR,
                 message: "Generate request failed:" + error.toString(),
             });
             console.error("Generate request failed:", error);
         }
     } catch (e) {
-        setJobStatus(job_id, {
+        setJobProgress(job_id, {
             status: JobStatus.FAILED,
             message: "Pipeline failed:" + e.toString(),
         });
@@ -118,7 +118,7 @@ async function processPdfToTree(file_url: string, job_id: string) {
 }
 
 // In your route handler:
-app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
+app.post('/submit/pdf_to_tree', async (req: Request, res: Response) => {
     const file_url = req.body.file_url;
     if (!file_url) {
         res.status(400).json({
@@ -128,7 +128,7 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
         return;
     }
     const job_id = randomUUID();
-    setJobStatus(job_id, {
+    await setJobProgress(job_id, {
         status: JobStatus.PROCESSING,
         message: "Processing started",
     });
@@ -140,11 +140,11 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
     res.json({status: 'success', message: 'PDF processing started', job_id: job_id});
 });
 
-app.post('/submit/nature_to_tree', (req: Request, res: Response) => {
+app.post('/submit/nature_to_tree', async (req: Request, res: Response) => {
     const html_source = req.body.html_source
     const paper_url = req.body.paper_url
     const job_id = randomUUID()
-    setJobStatus(job_id, {
+    await setJobProgress(job_id, {
         status: JobStatus.PROCESSING,
         message: "Processing"
     })
@@ -154,13 +154,13 @@ app.post('/submit/nature_to_tree', (req: Request, res: Response) => {
         html_source: html_source
     }).then(async (res) => {
         const tree_url = res.data["tree_url"]
-        setJobStatus(job_id, {
+        setJobProgress(job_id, {
             status: JobStatus.COMPLETE,
             message: "Finished",
             treeUrl: tree_url
         })
     }).catch((error) => {
-        setJobStatus(job_id, {
+        setJobProgress(job_id, {
             status: JobStatus.ERROR,
             message: "Generate request failed:" + error.toString(),
         })
@@ -171,7 +171,7 @@ app.post('/submit/nature_to_tree', (req: Request, res: Response) => {
 
 app.post('/result', async (req: Request, res: Response) => {
     const job_id = req.body.job_id;
-    const status = getJobStatus(job_id)
+    const status = getJobProgress(job_id)
     if (!status) {
         res.status(404).json({status: 'error'});
         return;
