@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "TreeReader",
+  "version": "1.1",
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "tabs"
+  ],
+  "action": {
+    "default_icon": "TreeReaderLogo.png",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.nature.com/articles/*",
+        "*://link.springer.com/article/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "TreeReaderLogoSmall.png",
+    "48": "TreeReaderLogoSmall.png",
+    "128": "TreeReaderLogo.png"
+  },
+  "host_permissions": [
+    "*://*.treer.ai/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
