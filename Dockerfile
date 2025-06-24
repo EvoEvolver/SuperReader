@@ -8,6 +8,7 @@ COPY . .
 RUN pip install -r reader/requirements.txt
 
 RUN cd server && npm install
+RUN cd frontend && npm install
 
 RUN npm run --prefix server build
 RUN npm run --prefix frontend build
