@@ -7,8 +7,8 @@ import {minioClient} from "./minio_upload";
 import multer from 'multer';
 import crypto from 'crypto';
 import {redisClient} from "./redis";
-import path from "path";
 
+import cors from 'cors';
 
 dotenv.config();
 
@@ -37,9 +37,17 @@ app.use(express.json());
 // Multer for handling file uploads
 const upload = multer({storage: multer.memoryStorage()});
 
-app.get('/wait', (_req, res) => {
-    res.sendFile(path.join(__dirname, frontendRoot));
-});
+// app.get('/wait', (_req, res) => {
+//     res.sendFile(path.join(__dirname, frontendRoot));
+// });
+
+app.use(cors({
+  origin: 'http://localhost:5173', // Allow your frontend origin
+  methods: ['GET', 'POST'], // Allowed methods
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true // Enable credentials (cookies, authorization headers, etc)
+}));
+
 
 app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     if (!req.file) {
@@ -134,6 +142,7 @@ app.post('/submit/nature_to_tree', (req: Request, res: Response) => {
 app.post('/result', async (req: Request, res: Response) => {
     const job_id = req.body.job_id;
     const status = job_status[job_id];
+    console.log(job_id)
     if (!status) {
         res.status(404).json({status: 'error'});
         return;
