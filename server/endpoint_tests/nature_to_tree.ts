@@ -16,8 +16,7 @@ async function fetchHtmlContent() {
     }
 }
 
-const hostname = "https://worker.treer.ai"
-//const hostname = "http://localhost:8081"
+const hostname = "http://localhost:8081"
 
 fetchHtmlContent().then((html_source) => {
     axios.post(hostname+'/submit/nature_to_tree', {
