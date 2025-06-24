@@ -84,7 +84,7 @@ async function processPdfToTree(file_url: string, job_id: string) {
         const result = await mineruPipeline(file_url, job_id);
         try {
 
-            setJobProgress(job_id, {
+            await setJobProgress(job_id, {
                 status: JobStatus.PROCESSING,
                 message: "Generating the tree",
             });
@@ -96,20 +96,20 @@ async function processPdfToTree(file_url: string, job_id: string) {
 
             const tree_url = res.data["tree_url"];
 
-            setJobProgress(job_id, {
+            await setJobProgress(job_id, {
                 status: JobStatus.COMPLETE,
                 message: "Finished",
                 treeUrl: tree_url
             });
         } catch (error) {
-            setJobProgress(job_id, {
+            await setJobProgress(job_id, {
                 status: JobStatus.ERROR,
                 message: "Generate request failed:" + error.toString(),
             });
             console.error("Generate request failed:", error);
         }
     } catch (e) {
-        setJobProgress(job_id, {
+        await setJobProgress(job_id, {
             status: JobStatus.FAILED,
             message: "Pipeline failed:" + e.toString(),
         });
@@ -154,13 +154,13 @@ app.post('/submit/nature_to_tree', async (req: Request, res: Response) => {
         html_source: html_source
     }).then(async (res) => {
         const tree_url = res.data["tree_url"]
-        setJobProgress(job_id, {
+        await setJobProgress(job_id, {
             status: JobStatus.COMPLETE,
             message: "Finished",
             treeUrl: tree_url
         })
-    }).catch((error) => {
-        setJobProgress(job_id, {
+    }).catch(async (error) => {
+        await setJobProgress(job_id, {
             status: JobStatus.ERROR,
             message: "Generate request failed:" + error.toString(),
         })

@@ -91,12 +91,12 @@ function processMarkdownImages(mdPath: string, urlPrefix: string): string[] {
 
 export async function mineruPipeline(fileUrl: string, jobId: string) {
     const taskId = await submitParsingJob(fileUrl);
-    setJobProgress(jobId, {
+    await setJobProgress(jobId, {
         status: JobStatus.PROCESSING,
         message: "Submitted pdf for parsing"
     })
     const resultUrl = await waitForParsingResult(taskId);
-    setJobProgress(jobId, {
+    await setJobProgress(jobId, {
         status: JobStatus.PROCESSING,
         message: "Parsing completed"
     })
