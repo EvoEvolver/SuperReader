@@ -54,6 +54,9 @@ export function App() {
                         <Typography variant="body1" color="text.secondary">
                             Processing your request... The result will appear automatically when ready.
                         </Typography>
+                        <Typography>
+                            {waitResponse.message || ""}
+                        </Typography>
                     </Box>
                 )}
 
