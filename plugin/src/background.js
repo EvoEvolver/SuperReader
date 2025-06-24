@@ -1,38 +1,22 @@
-let appState = {
-    pageList: []
-}
-let loadingPages = [];
+const worker_endpoint = "https://worker.treer.ai"
+
 
 // Modified message listener for 'sendNatureToTreeRequest'
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'sendNatureToTreeRequest') {
         // Handle the async operation
         (async () => {
-            if (loadingPages.includes(message.url)) {
-                sendResponse({status: "error", message: "Already processing this page."});
-                return;
-            }
             try {
-                loadingPages.push(message.url);
-                const tree_url = await sendNatureToTreeRequest(message.html, message.url);
-                appState.pageList.push({
-                    readerLink: tree_url,
-                });
-                sendResponse({status: "success", readerLink: tree_url, message: 'Tree reader ready!'});
+                const job_id = await sendNatureToTreeRequest(message.html, message.url);
                 // open the link in a new tab
-                chrome.tabs.create({url: tree_url});
-                loadingPages = loadingPages.filter(url => url !== message.url);
+                chrome.tabs.create({url: getWaitingPageUrl(job_id)});
             } catch (error) {
-                // remove the url from loadingPages
-                loadingPages = loadingPages.filter(url => url !== message.url);
                 sendResponse({status: "error", message: error.message});
             }
         })();
         return true; // Will respond asynchronously
     }
 });
-
-const worker_endpoint = "https://worker.treer.ai"
 
 
 async function sendNatureToTreeRequest(html_source, paper_url) {
@@ -50,15 +34,7 @@ async function sendNatureToTreeRequest(html_source, paper_url) {
 
     const responseData = await response.json();
     console.log("response received", responseData);
-
-    const job_id = responseData.job_id;
-
-    const tree_url = await wait_for_result(job_id);
-    if (tree_url) {
-        return tree_url;
-    } else {
-        throw new Error("no tree generated");
-    }
+    return responseData.job_id;
 }
 
 
@@ -91,11 +67,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 if (data.status !== "success") {
                     sendResponse({status: "Failed to send PDF"});
                     return;
-                }
 
+                }
                 console.log('Success:', data);
                 sendResponse({status: "PDF sent successfully!"});
-                await sendPdfToTreeRequest(data["url"], sendResponse);
+
+                const job_id = await sendPdfToTreeRequest(data["url"]);
+                chrome.tabs.create({url: getWaitingPageUrl(job_id)});
 
             } catch (error) {
                 console.error('Error:', error);
@@ -107,8 +85,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
-async function sendPdfToTreeRequest(pdf_url, sendResponse) {
-    await fetch(worker_endpoint + '/submit/pdf_to_tree', {
+async function sendPdfToTreeRequest(pdf_url) {
+    const response = await fetch(worker_endpoint + '/submit/pdf_to_tree', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -116,60 +94,13 @@ async function sendPdfToTreeRequest(pdf_url, sendResponse) {
         body: JSON.stringify({
             file_url: pdf_url
         })
-    })
-        .then(response => response.json())
-        .then(async data => {
-            if (data.status !== "success") {
-                sendResponse({status: "Job submission failed"});
-                return
-            }
-            const job_id = data["job_id"]
-            const tree_url = await wait_for_result(job_id)
-            if (tree_url) {
-                chrome.tabs.create({url: tree_url});
-            }
-        });
+    }).then(response => response.json())
+    return response["job_id"]
 }
 
-async function wait_for_result(job_id) {
-    while (true) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => {
-            controller.abort();
-        }, 30000); // 30 second timeout
 
-        try {
-            let response = await fetch(worker_endpoint + '/result', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({job_id: job_id}),
-                signal: controller.signal
-            });
-
-            const data = await response.json();
-            console.log(data);
-
-            clearTimeout(timeout); // Clear the timeout if the request completes successfully
-
-            if (data.tree_url) {
-                return data.tree_url;
-            }
-            if (data.status === "error" || data.status === "failed") {
-                return null;
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            clearTimeout(timeout); // Clean up the timeout
-            if (error.name === 'AbortError') {
-                console.log('Request timed out');
-                throw new Error('Request timed out after 30 seconds');
-            }
-            throw error; // Re-throw other errors
-        }
-    }
+function getWaitingPageUrl(job_id) {
+    return `${worker_endpoint}/wait?job_id=${encodeURIComponent(job_id)}`
 }
 
 // Set up default icons. This is good practice.

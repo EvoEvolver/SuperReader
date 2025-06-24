@@ -9,6 +9,11 @@ import crypto from 'crypto';
 import {redisClient} from "./redis";
 
 import cors from 'cors';
+import path from "path";
+let FRONTEND_DIR = process.env.FRONTEND_DIR
+if (!FRONTEND_DIR) {
+    FRONTEND_DIR = path.join(__dirname, "../../frontend/dist")
+}
 
 dotenv.config();
 
@@ -34,12 +39,10 @@ const job_status: Map<string, JobStatus> = new Map()
 
 app.use(express.json());
 
-// Multer for handling file uploads
-const upload = multer({storage: multer.memoryStorage()});
-
-// app.get('/wait', (_req, res) => {
-//     res.sendFile(path.join(__dirname, frontendRoot));
-// });
+app.use(express.static(FRONTEND_DIR));
+app.get('/wait', (_req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, "index.html"));
+});
 
 app.use(cors({
   origin: 'http://localhost:5173', // Allow your frontend origin
@@ -48,7 +51,8 @@ app.use(cors({
   credentials: true // Enable credentials (cookies, authorization headers, etc)
 }));
 
-
+// Multer for handling file uploads
+const upload = multer({storage: multer.memoryStorage()});
 app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
     if (!req.file) {
         res.status(400).send('No file uploaded');
@@ -142,7 +146,6 @@ app.post('/submit/nature_to_tree', (req: Request, res: Response) => {
 app.post('/result', async (req: Request, res: Response) => {
     const job_id = req.body.job_id;
     const status = job_status[job_id];
-    console.log(job_id)
     if (!status) {
         res.status(404).json({status: 'error'});
         return;
