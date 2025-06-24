@@ -171,7 +171,7 @@ app.post('/submit/nature_to_tree', async (req: Request, res: Response) => {
 
 app.post('/result', async (req: Request, res: Response) => {
     const job_id = req.body.job_id;
-    const status = getJobProgress(job_id)
+    const status = await getJobProgress(job_id)
     if (!status) {
         res.status(404).json({status: 'error'});
         return;

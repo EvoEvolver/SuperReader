@@ -1,3 +1,5 @@
+import {redisClient} from "./redis";
+
 export enum JobStatus {
     PROCESSING = "processing",
     COMPLETE = "complete",
@@ -12,14 +14,12 @@ export interface JobProgress {
 }
 
 
-import {redisClient} from "./redis";
-
 export async function setJobProgress(jobId: string, result: JobProgress): Promise<void> {
-    await redisClient.set("tree_worker_job_status-"+jobId, JSON.stringify(result));
+    await redisClient.set("tree_worker_job_status-" + jobId, JSON.stringify(result));
 }
 
 export async function getJobProgress(jobId: string): Promise<JobProgress | null> {
-    const result = await redisClient.get("tree_worker_job_status-"+jobId);
+    const result = await redisClient.get("tree_worker_job_status-" + jobId);
     if (!result) {
         return null;
     }
