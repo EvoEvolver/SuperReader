@@ -31,10 +31,10 @@ export function App() {
         }
 
         const updateWaitResponse = (response: WaitResponse) => {
-            setWaitResponse(response);
             if (response.status === JobStatus.COMPLETE && response.tree_url) {
                 window.open(response.tree_url, '_self');
             }
+            setWaitResponse(response);
         };
 
         wait_for_result(job_id, updateWaitResponse);

@@ -151,19 +151,19 @@ app.post('/result', async (req: Request, res: Response) => {
         return;
     }
     if (status === JobStatus.PROCESSING) {
-        res.json({status: 'processing', message: 'Still processing'});
+        res.json({status: JobStatus.PROCESSING, message: 'Still processing'});
         return;
     }
     if (status === JobStatus.ERROR) {
-        res.json({status: 'error', message: 'Error in processing'});
+        res.json({status: JobStatus.ERROR, message: 'Error in processing'});
         return;
     }
     if (status === JobStatus.COMPLETE) {
         const tree_url = await redisClient.get("tree_url_for_job_" + job_id);
-        res.json({status: 'success', tree_url: tree_url});
+        res.json({status: JobStatus.COMPLETE, tree_url: tree_url});
         return;
     }
     // Handle unhandled statuses (e.g., FAILED)
-    res.status(500).json({status: 'error', message: 'Unknown or failed job status'});
+    res.status(500).json({status: JobStatus.FAILED, message: 'Unknown or failed job status'});
 });
 
