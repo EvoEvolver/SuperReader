@@ -51,7 +51,7 @@ export function App() {
                     <Box sx={{textAlign: 'center'}}>
                         <CircularProgress size={48} sx={{mb: 2}}/>
                         <Typography variant="body1" color="text.secondary">
-                            Processing your request...
+                            Processing your request... The result will appear automatically when ready.
                         </Typography>
                     </Box>
                 )}
@@ -82,6 +82,15 @@ export function App() {
                         sx={{width: '100%'}}
                     >
                         {waitResponse.message || "Error occurred"}
+                    </Alert>
+                )}
+
+                {waitResponse.status === JobStatus.FAILED && (
+                    <Alert
+                        severity="error"
+                        sx={{width: '100%'}}
+                    >
+                        {waitResponse.message || "The processing is failed"}
                     </Alert>
                 )}
             </StyledPaper>

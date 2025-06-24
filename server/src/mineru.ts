@@ -8,6 +8,7 @@ import texmath from 'markdown-it-texmath';
 import {URL} from 'url';
 import {uploadFileToMinio} from './minio_upload';
 import katex from "katex";
+import {JobStatus, setJobStatus} from "./jobStatus";
 
 dotenv.config();
 
@@ -88,9 +89,17 @@ function processMarkdownImages(mdPath: string, urlPrefix: string): string[] {
     return originalPaths;
 }
 
-export async function mineruPipeline(fileUrl: string) {
+export async function mineruPipeline(fileUrl: string, jobId: string) {
     const taskId = await submitParsingJob(fileUrl);
+    setJobStatus(jobId, {
+        status: JobStatus.PROCESSING,
+        message: "Submitted pdf for parsing"
+    })
     const resultUrl = await waitForParsingResult(taskId);
+    setJobStatus(jobId, {
+        status: JobStatus.PROCESSING,
+        message: "Parsing completed"
+    })
     const outputDir = await downloadAndUnzipResult(resultUrl);
     const fullMdPath = path.join(outputDir, 'full.md');
 

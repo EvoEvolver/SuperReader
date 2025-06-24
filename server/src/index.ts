@@ -6,10 +6,11 @@ import {randomUUID} from "node:crypto";
 import {minioClient} from "./minio_upload";
 import multer from 'multer';
 import crypto from 'crypto';
-import {redisClient} from "./redis";
 
 import cors from 'cors';
 import path from "path";
+import {getJobStatus, JobStatus, setJobStatus} from "./jobStatus";
+
 let FRONTEND_DIR = process.env.FRONTEND_DIR
 if (!FRONTEND_DIR) {
     FRONTEND_DIR = path.join(__dirname, "../../frontend/dist")
@@ -28,15 +29,6 @@ app.listen(port, () => {
 });
 
 
-enum JobStatus {
-    PROCESSING = "processing",
-    COMPLETE = "complete",
-    ERROR = "error",
-    FAILED = "failed"
-}
-
-const job_status: Map<string, JobStatus> = new Map()
-
 app.use(express.json());
 
 app.use(express.static(FRONTEND_DIR));
@@ -45,10 +37,10 @@ app.get('/wait', (_req, res) => {
 });
 
 app.use(cors({
-  origin: 'http://localhost:5173', // Allow your frontend origin
-  methods: ['GET', 'POST'], // Allowed methods
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true // Enable credentials (cookies, authorization headers, etc)
+    origin: 'http://localhost:5173', // Allow your frontend origin
+    methods: ['GET', 'POST'], // Allowed methods
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true // Enable credentials (cookies, authorization headers, etc)
 }));
 
 // Multer for handling file uploads
@@ -87,8 +79,47 @@ app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Ex
 });
 
 
+async function processPdfToTree(file_url: string, job_id: string) {
+    try {
+        const result = await mineruPipeline(file_url, job_id);
+        try {
+
+            setJobStatus(job_id, {
+                status: JobStatus.PROCESSING,
+                message: "Generating the tree",
+            });
+
+            const res = await axios.post('http://localhost:8080/generate_from_html', {
+                html_source: result,
+                file_url: file_url
+            });
+
+            const tree_url = res.data["tree_url"];
+
+            setJobStatus(job_id, {
+                status: JobStatus.COMPLETE,
+                message: "Finished",
+                treeUrl: tree_url
+            });
+        } catch (error) {
+            setJobStatus(job_id, {
+                status: JobStatus.ERROR,
+                message: "Generate request failed:" + error.toString(),
+            });
+            console.error("Generate request failed:", error);
+        }
+    } catch (e) {
+        setJobStatus(job_id, {
+            status: JobStatus.FAILED,
+            message: "Pipeline failed:" + e.toString(),
+        });
+        console.error("Pipeline failed:", e);
+    }
+}
+
+// In your route handler:
 app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
-    const file_url = req.body.file_url
+    const file_url = req.body.file_url;
     if (!file_url) {
         res.status(400).json({
             status: 'error',
@@ -96,30 +127,16 @@ app.post('/submit/pdf_to_tree', (req: Request, res: Response) => {
         });
         return;
     }
-    const job_id = randomUUID()
-    job_status[job_id] = JobStatus.PROCESSING
-
-
-    // Continue with async processing after sending response
-    // Don't add await before
-    mineruPipeline(file_url).then((result) => {
-        axios.post('http://localhost:8080/generate_from_html', {
-            html_source: result,
-            file_url: file_url
-        }).then(async (res) => {
-            const tree_url = res.data["tree_url"]
-            await redisClient.set("tree_url_for_job_" + job_id, tree_url)
-            job_status[job_id] = JobStatus.COMPLETE;
-        }).catch((error) => {
-            job_status[job_id] = JobStatus.ERROR;
-            console.error("Generate request failed:", error);
-        });
-    }).catch((e) => {
-        job_status[job_id] = JobStatus.FAILED;
-        console.error("Pipeline failed:", e);
+    const job_id = randomUUID();
+    setJobStatus(job_id, {
+        status: JobStatus.PROCESSING,
+        message: "Processing started",
     });
 
-    // Send response immediately after initializing the job
+    // Start async processing
+    processPdfToTree(file_url, job_id);
+
+    // Send immediate response
     res.json({status: 'success', message: 'PDF processing started', job_id: job_id});
 });
 
@@ -127,43 +144,38 @@ app.post('/submit/nature_to_tree', (req: Request, res: Response) => {
     const html_source = req.body.html_source
     const paper_url = req.body.paper_url
     const job_id = randomUUID()
-    job_status[job_id] = JobStatus.PROCESSING
+    setJobStatus(job_id, {
+        status: JobStatus.PROCESSING,
+        message: "Processing"
+    })
+
     axios.post('http://localhost:8080/generate_from_nature', {
         paper_url: paper_url,
         html_source: html_source
     }).then(async (res) => {
         const tree_url = res.data["tree_url"]
-        await redisClient.set("tree_url_for_job_" + job_id, tree_url)
-        job_status[job_id] = JobStatus.COMPLETE;
+        setJobStatus(job_id, {
+            status: JobStatus.COMPLETE,
+            message: "Finished",
+            treeUrl: tree_url
+        })
     }).catch((error) => {
-        job_status[job_id] = JobStatus.ERROR;
+        setJobStatus(job_id, {
+            status: JobStatus.ERROR,
+            message: "Generate request failed:" + error.toString(),
+        })
         console.error("Generate request failed:", error);
     });
-    // Add response
     res.json({status: 'success', message: 'Nature paper processing started', job_id: job_id});
 });
 
 app.post('/result', async (req: Request, res: Response) => {
     const job_id = req.body.job_id;
-    const status = job_status[job_id];
+    const status = getJobStatus(job_id)
     if (!status) {
         res.status(404).json({status: 'error'});
         return;
     }
-    if (status === JobStatus.PROCESSING) {
-        res.json({status: JobStatus.PROCESSING, message: 'Still processing'});
-        return;
-    }
-    if (status === JobStatus.ERROR) {
-        res.json({status: JobStatus.ERROR, message: 'Error in processing'});
-        return;
-    }
-    if (status === JobStatus.COMPLETE) {
-        const tree_url = await redisClient.get("tree_url_for_job_" + job_id);
-        res.json({status: JobStatus.COMPLETE, tree_url: tree_url});
-        return;
-    }
-    // Handle unhandled statuses (e.g., FAILED)
-    res.status(500).json({status: JobStatus.FAILED, message: 'Unknown or failed job status'});
+    res.json(status)
 });
 
