@@ -9,7 +9,7 @@ export enum JobStatus {
 }
 
 export interface WaitResponse {
-    tree_url: string | null;
+    treeUrl: string | null;
     status: JobStatus;
     message?: string
 }

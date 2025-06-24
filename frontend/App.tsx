@@ -32,8 +32,8 @@ export function App() {
 
         const updateWaitResponse = (response: WaitResponse) => {
             console.log(response)
-            if (response.status === JobStatus.COMPLETE && response.tree_url) {
-                window.open(response.tree_url, '_self');
+            if (response.status === JobStatus.COMPLETE && response.treeUrl) {
+                window.open(response.treeUrl, '_self');
             }
             setWaitResponse(response);
         };
@@ -57,7 +57,7 @@ export function App() {
                     </Box>
                 )}
 
-                {waitResponse.tree_url && (
+                {waitResponse.treeUrl && (
                     <Box sx={{textAlign: 'center', width: '100%'}}>
                         <CheckCircleOutlineIcon
                             color="success"
@@ -69,7 +69,7 @@ export function App() {
                         <Button
                             variant="contained"
                             color="primary"
-                            href={waitResponse.tree_url}
+                            href={waitResponse.treeUrl}
                             sx={{mt: 2}}
                         >
                             View Result
