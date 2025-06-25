@@ -22,7 +22,9 @@ def generate_summary_for_node(node: Node) -> bool:
             Summary.get(node).content = None
     return True
 
+
 small_node_limit = 1000
+
 
 def build_html_tree(html_source):
     doc_root = generate_tree_structure(html_source)
@@ -56,12 +58,13 @@ def build_html_tree(html_source):
 
     return doc_root
 
+
 @retry(stop=stop_after_attempt(4), wait=wait_fixed(2))
 def generate_tree_structure(html_source):
     doc, soup = html_to_tree(html_source)
     doc = doc.first_child()
     doc.parent = None
-    subsections = [node.title+"\n" for node in doc.children]
+    subsections = [node.title + "\n" for node in doc.children]
     subsection_nodes = [node for node in doc.children]
 
     sections_in_prompt = "".join(subsections)
@@ -111,4 +114,8 @@ Additional notice:
 
     # Insert this after getting the res dictionary from chat.complete()
     attach_nodes(doc_root, res, 0)
+
+    doc_root = doc_root.first_child()
+    doc_root.parents = []
+
     return doc_root
