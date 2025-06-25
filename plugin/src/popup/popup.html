@@ -2,20 +2,84 @@
 <html>
 <head>
     <title>PDF Detector</title>
-    <link rel="stylesheet" href="https://cdn.tailwindcss.com"></link>
     <style>
         body {
-            width: 250px;
-            font-family: 'Inter', sans-serif;
+            width: 300px;
+            padding: 20px;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #ffffff;
+            margin: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
+
         .hidden {
             display: none;
         }
+
+        #message {
+            text-align: center;
+            color: #374151;
+            font-size: 14px;
+            margin-bottom: 16px;
+            padding: 12px;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        #sendPdf {
+            width: 100%;
+            margin-top: 16px;
+            background-color: #2563eb;
+            color: white;
+            font-weight: 600;
+            padding: 12px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        }
+
+        #sendPdf:hover {
+            background-color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
+        }
+
+        #sendPdf:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        h1 {
+            font-size: 18px;
+            margin: 0 0 16px 0;
+            color: #1f2937;
+            font-weight: 600;
+        }
     </style>
 </head>
-<body class="bg-gray-100 p-4">
-<div id="message" class="text-center text-gray-800">Checking for PDF...</div>
-<button id="sendPdf" class="hidden mt-4 w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+<body>
+<div id="message">Checking for PDF...</div>
+<button id="sendPdf" class="hidden">
     Send PDF to API
 </button>
 <script src="popup.js"></script>

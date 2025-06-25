@@ -8,6 +8,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         (async () => {
             try {
                 const job_id = await sendNatureToTreeRequest(message.html, message.url);
+                sendResponse({status: "success", message: "Job created. Click to go to worker page", job_id: job_id});
                 // open the link in a new tab
                 chrome.tabs.create({url: getWaitingPageUrl(job_id)});
             } catch (error) {
