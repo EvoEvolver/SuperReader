@@ -71,8 +71,8 @@ def generate_summary_for_section_node(node):
     {contents}
     </Contents>
     <Requirement>
-    You are required to output a summary of the section contents in the format of 1~9 key points based on the input length. Each key point should not be more than 15 words. The key points should summary the original content comprehensively.
-    Return your summary in with a JSON with a single key "points", whose value is a list with 1~9 JSON objects with the following keys:
+    You are required to output a summary of the section contents in the format of 1~7 key points based on the input length. Each key point should not be more than 15 words. The key points should summary the original content comprehensively.
+    Return your summary in with a JSON with a single key "points", whose value is a list with 1~7 JSON objects with the following keys:
     "point" (str): A key point of the section contents. The key point should be a complete sentence stating an important facts. You don't need to start with "The section discusses" or similar phrases.
     </Requirement>
         """
@@ -115,8 +115,8 @@ def generate_summary_for_leaf_node(node):
     {Summary.get(node).get_content_for_summary()}
     </Paragraph>
     <Requirement>
-    You are required to output a summary of the paragraph in the format of 1~9 key points. Each key point should not be more than 15 words. The key points should summary the original content comprehensively.
-    Return your summary in with a JSON with a single key "points", whose value is a list with 1~9 JSON objects with the following key:
+    You are required to output a summary of the paragraph in the format of 1~7 key points. Each key point should not be more than 15 words. The key points should summary the original content comprehensively.
+    Return your summary in with a JSON with a single key "points", whose value is a list with 1~7 JSON objects with the following key:
     "point" (str): A key point of the paragraph. The key point should be a complete sentence stating an important facts. You don't need to start with "The paragraph discusses" or similar phrases.
     </Requirement>
     """
