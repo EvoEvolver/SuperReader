@@ -129,7 +129,7 @@ async def generate_from_html(request: HTMLRequest):
     )
 
 def push_tree_data(tree_data: TreeData, host: str = "http://0.0.0.0:29999", token: Optional[str] = None) -> str:
-    root_id = tree_data["rootId"]
+    root_id = tree_data["metadata"]["rootId"]
     payload = json.dumps({
         "tree": tree_data,
         "root_id": str(root_id),
