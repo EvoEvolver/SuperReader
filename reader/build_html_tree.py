@@ -122,11 +122,11 @@ def find_and_attach_children(parent_node, potential_children):
 
     # 3. Attach children and recurse for each child
     for i, child_info in enumerate(child_nodes_with_indices):
-        child_node = child_info['node']
+        child_node: Node = child_info['node']
         original_index = child_info['index']
 
         # Attach the found child to its parent
-        parent_node.add_child(child_node)
+        child_node.change_parent(parent_node)
 
         # Determine the scope of potential grandchildren for this new child.
         # These are the nodes between this child and the next sibling.
