@@ -7,5 +7,5 @@ setup.py
 .run
 **/.pytest_cache/
 reader/.env
-**/.llm_cache/**
+**/.llm_cache/
 .env.*

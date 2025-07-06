@@ -35,6 +35,12 @@ app.use(express.static(FRONTEND_DIR));
 app.get('/wait', (_req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, "index.html"));
 });
+app.get('/upload', (_req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, "index.html"));
+});
+app.get('/searcher', (_req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, "index.html"));
+});
 
 app.use(cors({
     origin: 'http://localhost:5173', // Allow your frontend origin

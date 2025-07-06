@@ -15,7 +15,7 @@ const StyledPaper = styled(Paper)(({theme}) => ({
     margin: '2rem auto'
 }));
 
-export function App() {
+export function AppWait() {
     const [waitResponse, setWaitResponse] = useState<WaitResponse>({
         tree_url: null,
         status: JobStatus.PROCESSING,

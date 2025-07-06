@@ -75,14 +75,15 @@ class Summary(Attr):
     def render(self, rendered):
         if self.content is None:
             return
+        rendered.node_type = "ReaderNodeType"
         if len(self.node.content) > 0:
             if len(self.summaries_with_evidence) > 0:
-                rendered.tabs["summary"] = self.get_summary_for_display()
-                rendered.tools[1]["content"] = f"<HTMLContent html='{html.escape(self.node.content)}'/>"
+                rendered.data["htmlContent"] = self.get_summary_for_display()
+                rendered.data["htmlOriginalContent"] = self.node.content
             else:
-                rendered.tabs["content"] = f"<HTMLContent html='{html.escape(self.node.content)}'/>"
+                rendered.data["htmlContent"] = self.node.content
         else:
-            rendered.tabs["summary"] = self.get_summary_for_display()
+            rendered.data["htmlContent"] = self.get_summary_for_display()
         if self.short_content:
             rendered.data["short_summary"] = self.short_content
 
