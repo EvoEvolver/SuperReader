@@ -6,9 +6,8 @@ import requests
 from bs4 import BeautifulSoup
 from bs4 import Tag
 
-from fibers.tree import Node
-from fibers.utils.mapping import node_map_with_dependency
-from forest.tree import push_tree
+from tree import Node
+from tree.helper import node_map_with_dependency
 
 not_download_figures_table = False
 
@@ -411,4 +410,5 @@ if __name__ == "__main__":
     nature_url = "https://www.nature.com/articles/s41557-025-01815-x"
     html_source = requests.get(nature_url).text
     doc = run_nature_paper_to_tree(html_source, nature_url)
-    push_tree(doc)
+    #from forest.tree import push_tree
+    #push_tree(doc)

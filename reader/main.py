@@ -12,8 +12,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from pymongo import MongoClient
 
-from fibers.gui.forest_connector.forest_connector import TreeData
-from fibers.gui.renderer import Renderer
+from tree.forest import TreeData
+from tree.forest import Renderer
 from reader.build_html_tree import build_html_tree
 from reader.nature_paper_to_tree import run_nature_paper_to_tree
 

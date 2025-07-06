@@ -1,8 +1,8 @@
 from mllm import Chat
 from tenacity import retry, wait_fixed, stop_after_attempt
 
-from fibers.tree import Node
-from fibers.utils.mapping import node_map_with_dependency
+from tree import Node
+from tree.helper import node_map_with_dependency
 from reader.build_summary import generate_summary_for_leaf_node, \
     generate_summary_for_section_node
 from reader.html_to_raw_tree import html_to_tree

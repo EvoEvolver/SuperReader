@@ -2,8 +2,8 @@ import re
 
 from bs4 import Tag
 
-from fibers.data_loader.html_to_tree import SoupInfo, html_to_tree
-from fibers.tree import Node
+
+from tree import Node
 from reader.reference import set_reference_obj
 
 

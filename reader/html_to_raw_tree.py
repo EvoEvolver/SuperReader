@@ -6,8 +6,8 @@ import html2text
 import requests
 from bs4 import BeautifulSoup, PageElement, Tag
 
-from fibers.tree import Node
-from fibers.tree.node_attr import Attr
+from tree import Node
+from tree.node_attr import Attr
 
 
 class SoupInfo(Attr):

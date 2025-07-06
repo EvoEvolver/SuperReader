@@ -1,13 +1,7 @@
 from functools import partial
 from markdownify import markdownify
 from markdown import markdown
-import os, sys
 
-sys.path.append(os.path.abspath("../../FibersNext"))
-sys.path.append(os.path.abspath("../../Forest"))
-sys.path.append(os.path.abspath("../../SuperReader"))
-sys.path.append(os.path.abspath("/app/FibersNext"))
-sys.path.append(os.path.abspath("/app/Forest"))
 from reader.reference import set_reference_obj, construct_related_figures
 from mllm import Chat
 
@@ -18,9 +12,9 @@ import requests
 from bs4 import BeautifulSoup
 from bs4 import Tag
 
-from fibers.utils.mapping import node_map_with_dependency
+from tree.helper import node_map_with_dependency
 
-from fibers.tree import Node
+from tree import Node
 from reader.summary import Summary
 
 high_quality_arxiv_summary = False
@@ -231,7 +225,7 @@ def url_to_tree(url: str) -> ArxivNode:
     arxiv_url = url
     print(f"Processing {url}")
     html_source = requests.get(url).text
-    print("HTML source fetched successfully.",html_source[:1000])  # Print first 1000 characters for debugging
+    print("HTML source fetched successfully.", html_source[:1000])  # Print first 1000 characters for debugging
     # try:
     #     with open("cached_page.html", "r", encoding="utf-8") as f:
     #         html_source = f.read()
@@ -365,9 +359,6 @@ def generate_summary_for_node(node: ArxivNode, abstract: str) -> bool:
     return True
 
 
-
-
-
 def generate_tree_with_url(url: str, host: str) -> str:
     arxiv_url = url  # "https://arxiv.org/html/2407.12105v2"
     doc = url_to_tree(arxiv_url)
@@ -398,11 +389,12 @@ def generate_tree_with_url(url: str, host: str) -> str:
     Summary.get(doc).short_content = short_summary
     return doc.display(dev_mode=False, interactive=False, host=host)
 
+
 #
 if __name__ == "__main__":
-    import dotenv,mllm
+    import dotenv, mllm
+
     dotenv.load_dotenv()
-    
 
     mllm.config.default_models.expensive = "gpt-4o"
     # arxiv_url = "https://arxiv.org/html/2401.11314v2"
@@ -417,6 +409,7 @@ if __name__ == "__main__":
 
     # arxiv_url = "https://arxiv.org/html/2410.01672v2"
     import litellm
+
     litellm._turn_on_debug()
     arxiv_url = "https://arxiv.org/html/2410.15778v2"
     # arxiv_url = "https://arxiv.org/html/2410.09290v1"

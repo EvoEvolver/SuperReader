@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 from bs4 import BeautifulSoup
 from mllm import Chat
 
-from fibers.tree.node_attr import Attr
+from tree.node_attr import Attr
 
 if TYPE_CHECKING:
-    from fibers.tree import Node
+    from tree import Node
 
 high_quality_summary = False
 

@@ -3,8 +3,7 @@ from typing import List
 from mllm import Chat
 from mllm.utils import p_map
 
-from fibers.tree import Node
-from fibers.utils.prompt_utils import get_node_list_prompt
+from tree import Node
 from reader.summary import Summary
 
 

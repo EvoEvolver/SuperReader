@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from fibers.tree import Attr, Node
+from tree import Attr, Node
 from reader.nature_paper_to_tree import PaperNode
 
 if TYPE_CHECKING:

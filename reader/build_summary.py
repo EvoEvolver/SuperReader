@@ -3,7 +3,7 @@ import os
 from markdownify import markdownify
 from mllm import Chat
 
-from fibers.tree import Node
+from tree import Node
 from reader.nature_paper_to_tree import PaperNode
 from reader.summary import Summary
 high_quality_arxiv_summary = False
