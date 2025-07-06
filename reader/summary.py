@@ -79,11 +79,9 @@ class Summary(Attr):
             if len(self.summaries_with_evidence) > 0:
                 rendered.tabs["summary"] = self.get_summary_for_display()
                 rendered.tools[1]["content"] = f"<HTMLContent html='{html.escape(self.node.content)}'/>"
-                del rendered.tabs["content"]
             else:
                 rendered.tabs["content"] = f"<HTMLContent html='{html.escape(self.node.content)}'/>"
         else:
-            del rendered.tabs["content"]
             rendered.tabs["summary"] = self.get_summary_for_display()
         if self.short_content:
             rendered.data["short_summary"] = self.short_content

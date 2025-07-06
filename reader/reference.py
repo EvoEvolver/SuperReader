@@ -1,10 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 from tree import Attr, Node
 from reader.nature_paper_to_tree import PaperNode
-
-if TYPE_CHECKING:
-    from reader.arxiv_paper_to_tree import ArxivNode
 
 
 class Reference(Attr):

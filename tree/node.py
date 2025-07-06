@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Dict, List, Type, Set
 
 if TYPE_CHECKING:
     from tree.node_attr import Attr
+    from tree.forest import Rendered, TreeData
 
 
 class Node:
@@ -299,3 +300,37 @@ class Node:
 
     def get_attr_or_none(self, attr_class: Type[Attr]):
         return self.attrs.get(attr_class, None)
+
+
+    """
+    # Render to TreeData
+    """
+
+    def _render(self) -> Rendered:
+        """Render this node and its children"""
+        from tree.forest import Rendered
+        rendered = Rendered(self)
+        for attr_class, attr_value in self.attrs.items():
+            attr_value.render(rendered)
+        for child in self.children:
+            rendered.children.append(child._render())
+        return rendered
+
+
+    def render_to_json(self) -> TreeData:
+        """Render the entire tree starting from this node to TreeData format"""
+        node_dict = {}
+        self._render().to_json(node_dict)
+        treedata: TreeData = {
+            "metadata": {"rootId": str(self.node_id)},
+            "nodeDict": node_dict,
+        }
+        return treedata
+
+    def render_and_push(self, host="http://localhost:29999", token=None)->str:
+        """Render the entire tree starting from this node to TreeData format and push to the server
+        :return: The tree_id of the pushed tree
+        """
+        from tree.forest import push_tree_data
+        treedata = self.render_to_json()
+        return push_tree_data(treedata, host, token)
