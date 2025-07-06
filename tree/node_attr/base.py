@@ -20,20 +20,3 @@ class Attr:
 
     def render(self, rendered: Rendered):
         pass
-
-    def handle_message(self, message) -> MessageResult:
-        pass
-
-
-class MessageResult:
-    def __init__(self):
-        self.node_to_re_render = set()
-        self.new_selected_node: Node = None
-
-    def rerender(self, node: Node):
-        self.node_to_re_render.add(node)
-        return self
-
-    def select(self, node: Node):
-        self.new_selected_node = node
-        return self
