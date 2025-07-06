@@ -69,7 +69,7 @@ def get_child_titles_from_llm(potential_children):
     Calls the language model to get the direct children for a parent.
     """
     candidate_titles = "\n".join(
-        ['"' + node.title + '"' for node in potential_children])
+        [f'{i}: "' + node.title + '"' for i, node in enumerate(potential_children)])
     prompt = f"""
 The following is a list of all the headers in a section of an article.
 The headers are listed by their order to appear in the article.
@@ -81,17 +81,15 @@ If there is index in the header, you should respect them.
 What are the top-level headers of the section?
 Return a JSON dict keys: 
 "analysis": string for an analysis of who are the top headers.
-"top_headers": string[] for the headers.
+"top_headers": int[] for the index of the top headers in the list.
 """
     # The user's original code used `chat.add` and `chat.complete`.
     # Emulating a stateless call for clarity in recursion.
     # You may need to adjust this based on your `apyll` library usage.
     response = Chat(prompt).complete(cache=False, parse="dict", expensive=True)
-    section_titles = response["top_headers"]
+    section_title_index = response["top_headers"]
     valid_titles = [node.title for node in potential_children]
-    for title in section_titles:
-        if title not in valid_titles:
-            raise RuntimeError(f"Invalid title: {title}")
+    section_titles = [valid_titles[i] for i in section_title_index]
     return section_titles
 
 
