@@ -5,4 +5,5 @@ redis
 gunicorn
 pymongo
 tenacity
+html2text
 uvicorn[standard]
