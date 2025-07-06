@@ -69,7 +69,7 @@ def get_child_titles_from_llm(potential_children):
     Calls the language model to get the direct children for a parent.
     """
     candidate_titles = "\n".join(
-        [f'{i}: "' + node.title + '"' for i, node in enumerate(potential_children)])
+        [f'<{i}>: "' + node.title + '"' for i, node in enumerate(potential_children)])
     prompt = f"""
 The following is a list of all the headers in a section of an article.
 The headers are listed by their order to appear in the article.
@@ -81,7 +81,7 @@ If there is index in the header, you should respect them.
 What are the top-level headers of the section?
 Return a JSON dict keys: 
 "analysis": string for an analysis of who are the top headers.
-"top_headers": int[] for the index of the top headers in the list.
+"top_headers": int[] for the <index> of the top headers in the list.
 """
     # The user's original code used `chat.add` and `chat.complete`.
     # Emulating a stateless call for clarity in recursion.
