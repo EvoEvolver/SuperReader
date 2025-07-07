@@ -94,7 +94,7 @@ const QueryComponent: React.FC = () => {
 
                 {answer && (
                     <Paper sx={{ mt: 3, p: 2, bgcolor: 'grey.50' }}>
-                        <Typography variant="body1">{answer}</Typography>
+                        <span dangerouslySetInnerHTML={{__html: answer}}></span>
                     </Paper>
                 )}
             </Paper>

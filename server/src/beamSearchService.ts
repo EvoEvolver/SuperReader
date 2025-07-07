@@ -3,6 +3,7 @@ import {ChatOpenAI} from "@langchain/openai";
 import {PromptTemplate} from "@langchain/core/prompts";
 import * as dotenv from "dotenv"
 import TurndownService from 'turndown'
+import showdown from "showdown"
 
 dotenv.config();
 
@@ -167,7 +168,7 @@ Document:
 Question:
 {question}
 
-You answer in markdown:
+You answer in markdown directly without any formatting.
 `);
 
 
@@ -180,7 +181,10 @@ You answer in markdown:
             question: question
         });
 
-        return response.content as string;
+        const markdownAnswer = response.content as string;
+        const converter = new showdown.Converter();
+        const htmlAnswer = converter.makeHtml(markdownAnswer);
+        return htmlAnswer
     } catch (error) {
         console.error("Error generating answer:", error);
         return "Unable to generate answer due to an error.";
