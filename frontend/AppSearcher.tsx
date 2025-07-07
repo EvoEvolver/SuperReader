@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     TextField,
     Button,
@@ -18,6 +18,15 @@ const QueryComponent: React.FC = () => {
     const [question, setQuestion] = useState('');
     const [answer, setAnswer] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+
+    // Extract tree parameter from URL on component mount
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const treeParam = urlParams.get('tree');
+        if (treeParam) {
+            setUrl(treeParam);
+        }
+    }, []);
 
     const getAnswer = async (url: string, question: string): Promise<QueryResponse> => {
         const response = await fetch(worker_endpoint+'/search_and_answer', {
@@ -41,6 +50,13 @@ const QueryComponent: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Validate URL starts with https://treer.ai
+        if (!url.startsWith('https://treer.ai')) {
+            setAnswer('Error: URL must start with https://treer.ai');
+            return;
+        }
+        
         setLoading(true);
         try {
             const response = await getAnswer(url, question);
@@ -67,6 +83,8 @@ const QueryComponent: React.FC = () => {
                         onChange={(e) => setUrl(e.target.value)}
                         margin="normal"
                         required
+                        placeholder="https://treer.ai/..."
+                        helperText="URL to the tree to search"
                     />
 
                     <TextField
