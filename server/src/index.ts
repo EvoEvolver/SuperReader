@@ -10,6 +10,7 @@ import crypto from 'crypto';
 import cors from 'cors';
 import path from "path";
 import {getJobProgress, JobStatus, setJobProgress} from "./jobStatus";
+import {beamSearchMain} from "./beamSearchService";
 
 let FRONTEND_DIR = process.env.FRONTEND_DIR
 if (!FRONTEND_DIR) {
@@ -185,3 +186,33 @@ app.post('/result', async (req: Request, res: Response) => {
     res.json(status)
 });
 
+app.post('/search_and_answer', async (req: Request, res: Response) => {
+    const question = req.body.question;
+    const treeUrl = req.body.treeUrl;
+
+    try {
+        const url = new URL(treeUrl);
+        const treeId = url.searchParams.get('id');
+        const host = `${url.protocol}//${url.hostname}`;
+
+        if (!treeId) {
+            throw new Error('Missing id parameter in URL');
+        }
+
+        if (url.hostname !== 'treer.ai') {
+            throw new Error('Invalid host');
+        }
+
+        const answer = await beamSearchMain(question, treeId, host);
+
+        res.json({
+            answer: answer
+        });
+
+    } catch (error) {
+        res.status(400).json({
+            error: 'Invalid URL format or missing required parameters'
+        });
+        return;
+    }
+})

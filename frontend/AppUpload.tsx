@@ -9,8 +9,8 @@ import {
     Paper
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import {worker_endpoint} from "./config";
 
-const worker_endpoint = "https://worker.treer.ai"
 
 const PdfUpload: React.FC = () => {
     const [file, setFile] = useState<File | null>(null);

@@ -17,7 +17,7 @@ const StyledPaper = styled(Paper)(({theme}) => ({
 
 export function AppWait() {
     const [waitResponse, setWaitResponse] = useState<WaitResponse>({
-        tree_url: null,
+        treeUrl: null,
         status: JobStatus.PROCESSING,
     });
 
@@ -26,7 +26,7 @@ export function AppWait() {
 
     useEffect(() => {
         if (!job_id) {
-            setWaitResponse({tree_url: null, status: JobStatus.ERROR, message: 'No job id provided'});
+            setWaitResponse({treeUrl: null, status: JobStatus.ERROR, message: 'No job id provided'});
             return;
         }
 

@@ -12,10 +12,11 @@ const model = new ChatOpenAI({
 });
 
 function getNodeContent(node: NodeM) {
-    const nodeTypeName = node.nodeTypeName();
-    if (!this.nodeTypeName) {
-        if (this.tabs["content"] === `<PaperEditorMain/>`) {
-            this.nodeTypeName = "EditorNodeType"
+    let nodeTypeName = node.nodeTypeName();
+    if (!nodeTypeName) {
+        console.log(node.title())
+        if (node.ymap.get("tabs")["content"] === `<PaperEditorMain/>`) {
+            nodeTypeName = "EditorNodeType"
         } else {
             return "Invalid node."
         }
@@ -23,12 +24,14 @@ function getNodeContent(node: NodeM) {
     if (nodeTypeName === "ReaderNodeType") {
         const data = node.data()
         const htmlContent = data.htmlContent
-        //const htmlOriginalContent = data.htmlOriginalContent
         const turndownService = new TurndownService()
         return turndownService.turndown(htmlContent)
     } else if (nodeTypeName === "EditorNodeType") {
-        console.log("meet editor node")
-        return "Invalid node."
+        const editorContent = node.ydata().get("ydatapaperEditor").toJSON()
+        if (!editorContent || editorContent.trim().length === 0) {
+            return "No content."
+        }
+        return editorContent
     }
 }
 
@@ -60,7 +63,7 @@ async function pickNext(node: NodeM, requirement: string, tree: TreeM): Promise<
         const child = childrenList[i];
         const title = typeof child.title === 'string' ? child.title : "";
         const content = getNodeContent(child);
-        childrenInPrompt.push(`${i}. ${title} ${content}`);
+        childrenInPrompt.push(`${i}. ${title} \n ${content}`);
     }
 
     const childrenPrompt = childrenInPrompt.join("\n");
@@ -184,7 +187,7 @@ You answer in markdown:
     }
 }
 
-async function beamSearchMain(question: string, treeId: string, host: string = 'http://0.0.0.0:29999') {
+export async function beamSearchMain(question: string, treeId: string, host: string = 'http://0.0.0.0:29999') {
     const tree = await TreeM.treeFromWsWait(host.replace("http", "ws"), treeId)
     console.log("Starting beam search...");
     const matchedNodes = await beamSearch(tree, question);
@@ -193,9 +196,10 @@ async function beamSearchMain(question: string, treeId: string, host: string = '
         console.log("Generating answer...");
         const answer = await generateAnswer(matchedNodes, question);
         console.log("Answer:", answer);
+        return answer
     } else {
         console.log("No relevant nodes found.");
     }
 }
 
-beamSearchMain("")
+//beamSearchMain("What is the methodology of the paper","aaae6158-7889-4e4a-a200-14d9f54cb467", "https://treer.ai")
