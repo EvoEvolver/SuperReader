@@ -7,6 +7,9 @@ from reader.build_summary import generate_summary_for_leaf_node, \
     generate_summary_for_section_node
 from reader.html_to_raw_tree import html_to_tree
 from reader.summary import Summary
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def generate_summary_for_node(node: Node) -> bool:
@@ -26,11 +29,14 @@ def generate_summary_for_node(node: Node) -> bool:
 small_node_limit = 1000
 
 
-def build_html_tree(html_source):
+def build_html_tree(html_source)->Node:
     doc, soup = html_to_tree(html_source)
     doc = doc.first_child()
-    doc.parent = None
-    doc_root = build_hierarchical_tree_iteratively(list(doc.children))
+    doc._parent = None
+    children = list(doc.children)
+    doc.children = []
+    doc_root = build_hierarchical_tree_iteratively(children, doc)
+    doc_root._parent = None
 
     for node in doc_root.iter_subtree_with_dfs():
         if len(node.children) == 0:
@@ -95,7 +101,9 @@ Return a JSON dict keys:
 
 def find_and_attach_children(parent_node, potential_children):
     """
-    Recursively finds and attaches child nodes to a parent.
+    Recursively finds and attaches child nodes to a parent. Any nodes that appear
+    before the first identified top-level child are automatically attached as
+    direct children of the parent node.
 
     Args:
         parent_node (Node): The node to which children will be attached.
@@ -117,6 +125,12 @@ def find_and_attach_children(parent_node, potential_children):
     for i, node in enumerate(potential_children):
         if node.title in direct_child_titles:
             child_nodes_with_indices.append({'node': node, 'index': i})
+    
+    first_top_level_children_index = child_nodes_with_indices[0]['index']
+    if first_top_level_children_index != 0:
+        # Nodes before the first top-level child should be direct children
+        for i in range(first_top_level_children_index):
+            potential_children[i].change_parent(parent_node)
 
     # 3. Attach children and recurse for each child
     for i, child_info in enumerate(child_nodes_with_indices):
@@ -146,24 +160,29 @@ def find_and_attach_children(parent_node, potential_children):
 
 # --- Main Execution Logic ---
 
-def build_hierarchical_tree_iteratively(all_nodes):
+def build_hierarchical_tree_iteratively(all_nodes, root_node):
     """
     Builds a full hierarchical tree from a flat list of nodes.
     """
-    document_root = Node(title="Document")
-    find_and_attach_children(document_root, all_nodes)
-    return document_root
+    find_and_attach_children(root_node, all_nodes)
+    return root_node
 
 
 if __name__ == '__main__':
-    simulated_nodes = [
-        Node(title="Introduction"),
-        Node(title="Background"),
-        Node(title="Methods"),
-        Node(title="Data Collection"),
-        Node(title="Data Analysis"),
-        Node(title="Results"),
-        Node(title="Conclusion")
-    ]
-    doc = build_hierarchical_tree_iteratively(simulated_nodes)
-    print(doc)
+    import requests
+    url = "https://pubs.rsc.org/en/content/articlehtml/2025/dd/d5dd00080g"
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        html_source = response.text
+        doc_root = build_html_tree(html_source)
+        doc_root._parent = None
+        doc_root.render_and_push()
+        print("Tree built successfully")
+    except requests.RequestException as e:
+        print(f"Failed to fetch HTML: {e}")
+    except Exception as e:
+        print(f"Error building tree: {e}")
