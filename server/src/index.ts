@@ -44,7 +44,7 @@ app.get('/searcher', (_req, res) => {
 });
 
 app.use(cors({
-    origin: 'http://localhost:5173', // Allow your frontend origin
+    origin: ['http://localhost:5173', "http://localhost:7777"], // Allow your frontend origin
     methods: ['GET', 'POST'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true // Enable credentials (cookies, authorization headers, etc)

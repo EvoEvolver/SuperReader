@@ -7,12 +7,16 @@ const port = 7777;
 app.use(express.json());
 
 const handleSubmit = async (req: express.Request, res: express.Response) => {
-  const arxivId = req.params.id;
+  let arxivId = req.params.id;
+  // if the arxiv id end with .pdf, remove it
+  if (arxivId.endsWith('.pdf')) {
+    arxivId = arxivId.slice(0, -4);
+  }
   const type = req.path.split('/')[1];
   let arxivUrl: string;
   arxivUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
   try {
-    const response = await axios.post('http://localhost:8080/submit/pdf_to_tree', {
+    const response = await axios.post('http://localhost:8081/submit/pdf_to_tree', {
       file_url: arxivUrl,
     })
     const resData = response.data
@@ -20,6 +24,7 @@ const handleSubmit = async (req: express.Request, res: express.Response) => {
     // redirect to worker.treer.ai/wait?job_id=...
     res.redirect(`https://worker.treer.ai/wait?job_id=${job_id}`)
   } catch (error) {
+    console.error('Error submitting to pdf_to_tree service:', error);
     res.status(500).send({ error: 'Failed to submit to pdf_to_tree service' });
   }
 };
