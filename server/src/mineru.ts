@@ -24,6 +24,7 @@ async function submitParsingJob(fileUrl: string): Promise<string> {
         enable_formula: true,
         enable_table: true,
         language: 'en',
+        page_range: "1-40",
         extra_formats: ['html'],
     };
 
