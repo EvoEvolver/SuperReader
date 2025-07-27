@@ -75,7 +75,7 @@ def get_child_titles_from_llm(potential_children):
     Calls the language model to get the direct children for a parent.
     """
     candidate_titles = "\n".join(
-        [f'<{i}>: "' + node.title + '"' for i, node in enumerate(potential_children)])
+        [f'<{i}>: "' + node.title + '"' + "Content:" + '' + node.content[:100] +'...' for i, node in enumerate(potential_children)])
     prompt = f"""
 The following is a list of all the headers in a section of an article.
 The headers are listed by their order to appear in the article.
@@ -118,7 +118,10 @@ def find_and_attach_children(parent_node, potential_children):
     direct_child_titles = get_child_titles_from_llm(potential_children)
 
     if not direct_child_titles:
-        return  # No children found for this parent.
+        # No sections found, attach all nodes as direct children
+        for node in potential_children:
+            node.change_parent(parent_node)
+        return
 
     # 2. Map titles back to actual Node objects and record their original indices
     child_nodes_with_indices = []
@@ -156,6 +159,14 @@ def find_and_attach_children(parent_node, potential_children):
         # Now, do the same process for the new child and its potential children.
         if grandchildren_candidates:
             find_and_attach_children(child_node, grandchildren_candidates)
+
+    # 4. Handle nodes after the last top-level child
+    last_child_index = child_nodes_with_indices[-1]['index']
+    remaining_nodes = potential_children[last_child_index + 1:]
+    if remaining_nodes:
+        # Attach remaining nodes to the last child
+        last_child = child_nodes_with_indices[-1]['node']
+        find_and_attach_children(last_child, remaining_nodes)
 
 
 # --- Main Execution Logic ---
