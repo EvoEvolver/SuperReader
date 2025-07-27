@@ -152,11 +152,11 @@ async function beamSearch(tree: TreeM, query: string): Promise<NodeM[]> {
     return Array.from(matchedNodesSet);
 }
 
-async function generateAnswer(nodes: NodeM[], question: string): Promise<string> {
-    const docToPrompt = nodes.map(node => {
+async function generateAnswer(nodes: NodeM[], question: string, treeUrl): Promise<string> {
+    const docToPrompt = nodes.map((node, index) => {
         const title = typeof node.title === 'string' ? node.title : "";
         const content = getNodeContent(node);
-        return `${title}\n${content}`;
+        return `${index}: ${title}\n${content}`;
     }).join("\n\n");
 
     const promptTemplate = PromptTemplate.fromTemplate(`
@@ -168,7 +168,8 @@ Document:
 Question:
 {question}
 
-You answer in markdown directly without any formatting.
+You answer in markdown directly without any formatting. 
+In your answer, whenever you want to make a statement, you should insert reference tags <ref id="index"/> where index is the number of the document section you're referencing.
 `);
 
 
@@ -184,7 +185,22 @@ You answer in markdown directly without any formatting.
         const markdownAnswer = response.content as string;
         const converter = new showdown.Converter();
         const htmlAnswer = converter.makeHtml(markdownAnswer);
-        return htmlAnswer
+
+        // parse the html, replace <ref id="index"/> with <a href="#index">[ref]</a>
+        const refRegex = /<ref id="(\d+)"\/>/g;
+        const getNodeId = (index: number) => {
+            const node = nodes[index];
+            if (node) {
+                return node.id;
+            } else {
+                console.warn(`Node with index ${index} not found.`);
+                return null;
+            }
+        }
+        const htmlAnswerWithRefs = htmlAnswer.replace(refRegex, (match, index) => {
+            return `<a href="${treeUrl}&n=${getNodeId(index)}" target="_blank">[ref]</a>`;
+        });
+        return htmlAnswerWithRefs
     } catch (error) {
         console.error("Error generating answer:", error);
         return "Unable to generate answer due to an error.";
@@ -196,9 +212,10 @@ export async function beamSearchMain(question: string, treeId: string, host: str
     console.log("Starting beam search...");
     const matchedNodes = await beamSearch(tree, question);
     console.log(`Found ${matchedNodes.length} relevant nodes`);
+    const treeUrl = new URL(`?id=${treeId}`, host).toString();
     if (matchedNodes.length > 0) {
         console.log("Generating answer...");
-        const answer = await generateAnswer(matchedNodes, question);
+        const answer = await generateAnswer(matchedNodes, question, treeUrl);
         console.log("Answer:", answer);
         return answer
     } else {
