@@ -19,7 +19,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@forest/schema": "https://gitpkg.vercel.app/EvoEvolver/Forest/packages/schema?main",
+    "@forest/schema": "https://gitpkg.vercel.app/EvoEvolver/Forest/packages/schema?8fc26270d24f88fc1400e563bb445c4470339632",
     "@langchain/core": "^0.3.62",
     "@langchain/openai": "^0.5.18",
     "@types/multer": "^1.4.13",
