@@ -65,10 +65,45 @@ def build_html_tree(html_source)->Node:
                              generate_summary_for_node,
                              n_workers=20)
 
+    # Extract and set the root title based on top-level section titles
+    root_title = extract_root_title_from_sections(doc_root)
+    doc_root.title = root_title
+
     return doc_root
 
 
 # We use @retry on the function that makes the actual API call
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+def extract_root_title_from_sections(root_node):
+    """
+    Extracts a title for the root node based on its top-level section titles.
+    """
+    if not root_node.children:
+        return "Document"
+    
+    top_level_titles = [child.title for child in root_node.children if child.title.strip()]
+    
+    if not top_level_titles:
+        return "Document"
+    
+    titles_text = "\n".join([f"- {title}" for title in top_level_titles])
+    
+    prompt = f"""
+Based on the following headers from a document, pick one as the title for the document.
+If nothing is suitable, make up a title that is relevant to the content of the document.
+
+Top-level headers:
+{titles_text}
+
+Return a JSON dict with:
+"analysis": string explaining your reasoning for the title choice
+"title": string containing the proposed document title
+"""
+    
+    response = Chat(prompt).complete(cache=False, parse="dict", expensive=True)
+    return response.get("title", "Document")
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
 def get_child_titles_from_llm(potential_children):
     """
