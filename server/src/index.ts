@@ -44,7 +44,7 @@ app.get('/searcher', (_req, res) => {
 });
 
 app.use(cors({
-    origin: ['http://localhost:5173', "http://localhost:7777"], // Allow your frontend origin
+    origin: ['http://localhost:5173', "http://localhost:7777", "http://localhost:39999", "https://treer.ai"], // Allow your frontend origin
     methods: ['GET', 'POST'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true // Enable credentials (cookies, authorization headers, etc)
@@ -190,19 +190,23 @@ app.post('/search_and_answer', async (req: Request, res: Response) => {
     const question = req.body.question;
     const treeUrl = req.body.treeUrl;
 
+
     try {
         const url = new URL(treeUrl);
         const treeId = url.searchParams.get('id');
-        const host = `${url.protocol}//${url.hostname}`;
+        let host = `${url.protocol}//${url.hostname}`;
+        if (url.port) {
+            host += `:${url.port}`;
+        }
 
         if (!treeId) {
             throw new Error('Missing id parameter in URL');
         }
 
-        if (url.hostname !== 'treer.ai') {
+        if (url.hostname !== 'treer.ai' && url.hostname !== 'localhost') {
             throw new Error('Invalid host');
         }
-
+        console.log(question, treeId, host)
         const answer = await beamSearchMain(question, treeId, host);
 
         res.json({
