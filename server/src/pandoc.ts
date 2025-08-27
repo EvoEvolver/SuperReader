@@ -203,6 +203,12 @@ export async function pandocPipeline(fileUrl: string, jobId: string, originalFil
         // Read the generated HTML
         let htmlContent = await fs.promises.readFile(outputPath, 'utf-8');
         
+        // Log HTML content for debugging
+        console.log(`\n=== PANDOC HTML OUTPUT (Job ${jobId}) ===`);
+        console.log(`HTML length: ${htmlContent.length} characters`);
+        console.log(`First 500 characters:\n${htmlContent.substring(0, 500)}...`);
+        console.log(`=== END HTML OUTPUT ===\n`);
+        
         await setJobProgress(jobId, {
             status: JobStatus.PROCESSING,
             message: "Processing extracted media assets"
