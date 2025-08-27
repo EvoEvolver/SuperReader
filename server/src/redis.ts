@@ -15,4 +15,6 @@ redisClient.on('connect', () => {
 });
 
 // Connect to Redis
-redisClient.connect().catch(console.error);
+redisClient.connect().catch((err) => {
+    console.warn('Redis connection failed, continuing without Redis:', err.message);
+});

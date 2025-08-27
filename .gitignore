@@ -9,3 +9,5 @@ setup.py
 reader/.env
 **/.llm_cache/
 .env.*
+*/node_modules/
+*.env*

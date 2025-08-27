@@ -5,6 +5,12 @@ WORKDIR /app
 
 COPY . .
 
+# Install Pandoc for document conversion
+RUN apt-get update && \
+    apt-get install -y pandoc && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN pip install -r reader/requirements.txt
 
 
