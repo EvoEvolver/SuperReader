@@ -175,18 +175,33 @@ export async function pandocPipeline(fileUrl: string, jobId: string, originalFil
             message: "Downloading document for conversion"
         });
         
-        // Download the file
-        const response = await fetch(fileUrl);
-        if (!response.ok) {
-            throw new Error(`Failed to download file: ${response.statusText}`);
-        }
+        // Parse MinIO URL to extract bucket and object name
+        console.log(`Parsing MinIO URL: ${fileUrl}`);
+        const url = new URL(fileUrl);
+        const pathParts = url.pathname.split('/').filter(part => part.length > 0);
+        const bucketName = pathParts[0];
+        const objectName = pathParts.slice(1).join('/');
         
-        const fileBuffer = Buffer.from(await response.arrayBuffer());
+        console.log(`Downloading from MinIO - Bucket: ${bucketName}, Object: ${objectName}`);
+        
+        // Download file directly from MinIO using client credentials
+        const { minioClient } = await import('./minio_upload');
+        const chunks: Buffer[] = [];
+        
+        const stream = await minioClient.getObject(bucketName, objectName);
+        
+        const fileBuffer = await new Promise<Buffer>((resolve, reject) => {
+            stream.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+            stream.on('error', reject);
+            stream.on('end', () => resolve(Buffer.concat(chunks)));
+        });
+        
+        console.log(`Successfully downloaded file from MinIO, size: ${fileBuffer.length} bytes`);
         const inputPath = path.join(tempDir, originalFilename);
         await fs.promises.writeFile(inputPath, fileBuffer);
         
-        // Detect format
-        const format = detectDocumentFormat(originalFilename, response.headers.get('content-type') || '');
+        // Detect format (we don't have response headers from MinIO stream, so use empty string)
+        const format = detectDocumentFormat(originalFilename, '');
         if (!format) {
             throw new Error(`Unsupported document format: ${originalFilename}`);
         }

@@ -15,7 +15,16 @@ import {beamSearchMain} from "./beamSearchService";
 
 let FRONTEND_DIR = process.env.FRONTEND_DIR
 if (!FRONTEND_DIR) {
-    FRONTEND_DIR = path.join(__dirname, "../../frontend/dist")
+    // Check if dist directory exists, otherwise fallback to frontend root
+    const distPath = path.join(__dirname, "../../frontend/dist")
+    const frontendPath = path.join(__dirname, "../../frontend")
+    
+    if (require('fs').existsSync(distPath)) {
+        FRONTEND_DIR = distPath
+    } else {
+        FRONTEND_DIR = frontendPath
+        console.warn('Frontend dist directory not found, using frontend root directory')
+    }
 }
 
 dotenv.config();
@@ -100,51 +109,99 @@ app.post('/upload_pdf', upload.single('file'), async (req: Request & { file?: Ex
 
 // New universal document upload endpoint
 app.post('/upload_document', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
-    if (!req.file) {
-        res.status(400).send('No file uploaded');
-        return;
-    }
-
-    const filename = req.file.originalname;
-    const mimeType = req.file.mimetype;
-    
-    // Check if it's a PDF (use existing PDF pipeline)
-    const isPdf = mimeType === 'application/pdf' && filename.toLowerCase().endsWith('.pdf');
-    
-    // Check if it's a supported document format
-    const isSupportedDoc = isSupportedFormat(filename, mimeType);
-    
-    if (!isPdf && !isSupportedDoc) {
-        const supportedExts = getSupportedExtensions();
-        res.status(400).json({
-            status: 'error',
-            message: `Unsupported file format. Supported formats: PDF, ${supportedExts.join(', ')}`
-        });
-        return;
-    }
-
-    // Calculate SHA-256 hash of the file
-    const hash = crypto.createHash('sha256');
-    hash.update(req.file.buffer);
-    const fileExtension = path.extname(filename);
-    const objectName = hash.digest('hex') + fileExtension;
-
-    // Determine bucket based on file type
-    const bucketName = isPdf ? "pdf" : "documents";
-
     try {
-        await minioClient.putObject(bucketName, objectName, req.file.buffer);
-        res.json({
+        console.log('=== /upload_document endpoint called ===');
+        console.log('Request file:', req.file ? 'Present' : 'Missing');
+        
+        if (!req.file) {
+            console.log('Error: No file uploaded');
+            res.status(400).send('No file uploaded');
+            return;
+        }
+
+        const filename = req.file.originalname;
+        const mimeType = req.file.mimetype;
+        
+        console.log('File details:', {
+            filename,
+            mimeType,
+            size: req.file.buffer.length
+        });
+        
+        // Check if it's a PDF (use existing PDF pipeline)
+        const isPdf = mimeType === 'application/pdf' && filename.toLowerCase().endsWith('.pdf');
+        
+        // Check if it's a supported document format
+        console.log('Checking if supported format...');
+        const isSupportedDoc = isSupportedFormat(filename, mimeType);
+        console.log('Format check results:', { isPdf, isSupportedDoc });
+        
+        if (!isPdf && !isSupportedDoc) {
+            const supportedExts = getSupportedExtensions();
+            console.log('File format not supported. Supported extensions:', supportedExts);
+            res.status(400).json({
+                status: 'error',
+                message: `Unsupported file format. Supported formats: PDF, ${supportedExts.join(', ')}`
+            });
+            return;
+        }
+
+        // Calculate SHA-256 hash of the file
+        console.log('Calculating file hash...');
+        const hash = crypto.createHash('sha256');
+        hash.update(req.file.buffer);
+        const fileExtension = path.extname(filename);
+        const objectName = hash.digest('hex') + fileExtension;
+        console.log('Generated object name:', objectName);
+
+        // Determine bucket based on file type
+        const bucketName = isPdf ? "pdf" : "documents";
+        console.log('Target bucket:', bucketName);
+
+        console.log('Uploading to MinIO...');
+        console.log('MinIO config:', {
+            host: process.env.MINIO_PUBLIC_HOST,
+            bucket: bucketName
+        });
+        
+        // Ensure bucket exists
+        console.log('Checking if bucket exists...');
+        const bucketExists = await minioClient.bucketExists(bucketName);
+        if (!bucketExists) {
+            console.log(`Creating bucket: ${bucketName}`);
+            await minioClient.makeBucket(bucketName);
+            console.log(`Bucket ${bucketName} created successfully`);
+        }
+        
+        // Upload with public read metadata
+        await minioClient.putObject(bucketName, objectName, req.file.buffer, req.file.buffer.length, {
+            'Content-Type': mimeType,
+            'Cache-Control': 'public, max-age=86400'
+        });
+        console.log('File uploaded successfully to MinIO');
+        
+        // Return the MinIO URL - server will use MinIO client to download
+        const fileUrl = `${process.env.MINIO_PUBLIC_HOST}/${bucketName}/${objectName}`;
+        
+        const responseData = {
             status: 'success',
-            url: `${process.env.MINIO_PUBLIC_HOST}/${bucketName}/${objectName}`,
+            url: fileUrl,
             file_type: isPdf ? 'pdf' : 'document',
             original_filename: filename
-        });
+        };
+        
+        console.log('Returning response:', responseData);
+        res.json(responseData);
+        
     } catch (error) {
-        console.error('Error uploading to Minio:', error);
+        console.error('=== ERROR in /upload_document ===');
+        console.error('Error type:', error.constructor.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        
         res.status(500).json({
             status: 'error',
-            message: 'Failed to upload file'
+            message: 'Failed to upload file: ' + error.message
         });
     }
 });

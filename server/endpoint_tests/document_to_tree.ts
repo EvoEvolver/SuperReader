@@ -90,12 +90,104 @@ This concludes our test document.
     console.log("This would be uploaded as a .md file through /upload_document endpoint");
 }
 
+// Test DOC document processing
+async function testDocUpload() {
+    console.log("\n=== Testing DOC Document Processing ===");
+    
+    try {
+        // Using a sample DOC file URL - W3C test document
+        const testDocUrl = "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-doc-file.doc";
+        
+        console.log("Testing with sample DOC file:", testDocUrl);
+        
+        // Submit DOC document for processing
+        const submitResponse = await axios.post(hostname + '/submit/document_to_tree', {
+            file_url: testDocUrl,
+            file_type: "document",
+            original_filename: "sample.doc"
+        });
+        
+        console.log("Submit response:", submitResponse.data);
+        const job_id = submitResponse.data["job_id"];
+        
+        // Poll for results
+        console.log("Polling for DOC processing results...");
+        while (true) {
+            let result = await axios.post(hostname + '/result', {job_id: job_id});
+            console.log("DOC Status:", result.data);
+            
+            if (result.data["treeUrl"]) {
+                console.log("✅ DOC processing completed successfully!");
+                console.log("Tree URL:", result.data["treeUrl"]);
+                break;
+            }
+            
+            if (result.data["status"] === "ERROR" || result.data["status"] === "FAILED") {
+                console.log("❌ DOC processing failed:", result.data["message"]);
+                break;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+    } catch (error) {
+        console.error("❌ DOC test failed:", error.response?.data || error.message);
+    }
+}
+
+// Test DOCX document processing
+async function testDocxUpload() {
+    console.log("\n=== Testing DOCX Document Processing ===");
+    
+    try {
+        // Using a sample DOCX file URL - Learning Container test document
+        const testDocxUrl = "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-docx-file.docx";
+        
+        console.log("Testing with sample DOCX file:", testDocxUrl);
+        
+        // Submit DOCX document for processing
+        const submitResponse = await axios.post(hostname + '/submit/document_to_tree', {
+            file_url: testDocxUrl,
+            file_type: "document",
+            original_filename: "sample.docx"
+        });
+        
+        console.log("Submit response:", submitResponse.data);
+        const job_id = submitResponse.data["job_id"];
+        
+        // Poll for results
+        console.log("Polling for DOCX processing results...");
+        while (true) {
+            let result = await axios.post(hostname + '/result', {job_id: job_id});
+            console.log("DOCX Status:", result.data);
+            
+            if (result.data["treeUrl"]) {
+                console.log("✅ DOCX processing completed successfully!");
+                console.log("Tree URL:", result.data["treeUrl"]);
+                break;
+            }
+            
+            if (result.data["status"] === "ERROR" || result.data["status"] === "FAILED") {
+                console.log("❌ DOCX processing failed:", result.data["message"]);
+                break;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+    } catch (error) {
+        console.error("❌ DOCX test failed:", error.response?.data || error.message);
+    }
+}
+
 // Run tests
 async function runAllTests() {
     console.log("🚀 Starting Document Processing Tests\n");
     
     await testFileUploadSimulation();
     await testDocumentUpload();
+    await testDocUpload();
+    await testDocxUpload();
     
     console.log("\n✨ All tests completed!");
 }
