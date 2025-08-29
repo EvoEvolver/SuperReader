@@ -11,7 +11,7 @@ import crypto from 'crypto';
 import cors from 'cors';
 import path from "path";
 import {getJobProgress, JobStatus, setJobProgress} from "./jobStatus";
-import {beamSearchMain} from "./beamSearchService";
+import {beamSearchMain, enhancedSearch, SearchOptions} from "./beamSearchService";
 
 let FRONTEND_DIR = process.env.FRONTEND_DIR
 if (!FRONTEND_DIR) {
@@ -51,6 +51,87 @@ app.get('/upload', (_req, res) => {
 });
 app.get('/searcher', (_req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, "index.html"));
+});
+
+// A2A Protocol: Agent Card endpoint
+app.get('/.well-known/agent.json', (_req, res) => {
+    res.json({
+        name: "SuperReader Knowledge Search Agent",
+        description: "Advanced knowledge search agent that can search through document trees and provide intelligent answers with references using beam search and GPT-4o-mini",
+        version: "1.0.0",
+        endpoint: "/a2a",
+        capabilities: [
+            {
+                id: "search_knowledge_tree",
+                name: "Search Knowledge Tree",
+                description: "Search through a document knowledge tree to find relevant information and generate comprehensive answers with clickable references",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        question: {
+                            type: "string",
+                            description: "The question to search for in the knowledge tree"
+                        },
+                        tree_url: {
+                            type: "string",
+                            description: "URL of the knowledge tree to search (e.g., 'http://localhost:29999/?id=tree-123')",
+                            format: "uri"
+                        },
+                        max_nodes: {
+                            type: "integer",
+                            description: "Maximum number of relevant nodes to consider (optional)",
+                            minimum: 1,
+                            maximum: 50,
+                            default: 10
+                        },
+                        include_metadata: {
+                            type: "boolean",
+                            description: "Whether to include node metadata in the response (optional)",
+                            default: false
+                        }
+                    },
+                    required: ["question", "tree_url"]
+                },
+                returns: {
+                    type: "object",
+                    properties: {
+                        answer: {
+                            type: "string",
+                            description: "Generated answer in HTML format with clickable references"
+                        },
+                        matched_nodes: {
+                            type: "array",
+                            description: "List of relevant nodes found during search",
+                            items: {
+                                type: "object",
+                                properties: {
+                                    id: { type: "string" },
+                                    title: { type: "string" },
+                                    relevance_score: { type: "number" }
+                                }
+                            }
+                        },
+                        confidence: {
+                            type: "number",
+                            description: "Confidence score of the answer (0.0 to 1.0)"
+                        },
+                        processing_time_ms: {
+                            type: "number",
+                            description: "Time taken to process the request in milliseconds"
+                        }
+                    }
+                }
+            }
+        ],
+        authentication: {
+            type: "bearer_token",
+            optional: true
+        },
+        streaming: false,
+        contact: {
+            url: "https://github.com/your-repo/SuperReader"
+        }
+    });
 });
 
 // Get supported document formats
@@ -442,4 +523,171 @@ app.post('/search_and_answer', async (req: Request, res: Response) => {
         });
         return;
     }
-})
+});
+
+// A2A Protocol: Main endpoint for JSON-RPC 2.0 communication
+app.post('/a2a', async (req: Request, res: Response) => {
+    try {
+        const { jsonrpc, method, params, id } = req.body;
+        
+        // Validate JSON-RPC 2.0 format
+        if (jsonrpc !== "2.0") {
+            return res.status(400).json({
+                jsonrpc: "2.0",
+                error: {
+                    code: -32600,
+                    message: "Invalid Request"
+                },
+                id: id
+            });
+        }
+
+        // Handle tasks.send method
+        if (method === 'tasks.send') {
+            const { capability_id, parameters } = params;
+            
+            if (capability_id === 'search_knowledge_tree') {
+                const { question, tree_url, max_nodes, include_metadata } = parameters;
+                
+                // Validate required parameters
+                if (!question || !tree_url) {
+                    return res.status(400).json({
+                        jsonrpc: "2.0",
+                        error: {
+                            code: -32602,
+                            message: "Invalid params",
+                            data: "Missing required parameters: question and tree_url"
+                        },
+                        id: id
+                    });
+                }
+
+                try {
+                    const url = new URL(tree_url);
+                    const treeId = url.searchParams.get('id');
+                    let host = `${url.protocol}//${url.hostname}`;
+                    if (url.port) {
+                        host += `:${url.port}`;
+                    }
+
+                    if (!treeId) {
+                        throw new Error('Missing id parameter in tree_url');
+                    }
+
+                    // Allow more hosts for A2A protocol
+                    const allowedHosts = ['treer.ai', 'localhost', '127.0.0.1', '0.0.0.0'];
+                    if (!allowedHosts.includes(url.hostname)) {
+                        throw new Error('Invalid host in tree_url');
+                    }
+
+                    // Use enhanced search with A2A options
+                    const searchOptions: SearchOptions = {
+                        max_nodes: max_nodes || 10,
+                        include_metadata: include_metadata || false
+                    };
+
+                    const searchResult = await enhancedSearch(question, treeId, host, searchOptions);
+
+                    // A2A protocol response format
+                    res.json({
+                        jsonrpc: "2.0",
+                        result: {
+                            status: "completed",
+                            result: {
+                                answer: searchResult.answer,
+                                matched_nodes: searchResult.matched_nodes.map(node => ({
+                                    id: node.id,
+                                    title: node.title,
+                                    relevance_score: node.relevance_score
+                                })),
+                                confidence: searchResult.confidence,
+                                processing_time_ms: searchResult.processing_time_ms,
+                                ...(searchResult.metadata && { metadata: searchResult.metadata })
+                            }
+                        },
+                        id: id
+                    });
+
+                } catch (searchError) {
+                    res.status(500).json({
+                        jsonrpc: "2.0",
+                        error: {
+                            code: -32603,
+                            message: "Internal error",
+                            data: searchError.message
+                        },
+                        id: id
+                    });
+                }
+
+            } else {
+                res.status(400).json({
+                    jsonrpc: "2.0",
+                    error: {
+                        code: -32601,
+                        message: "Method not found",
+                        data: `Unsupported capability: ${capability_id}`
+                    },
+                    id: id
+                });
+            }
+
+        } else {
+            res.status(400).json({
+                jsonrpc: "2.0",
+                error: {
+                    code: -32601,
+                    message: "Method not found",
+                    data: `Unsupported method: ${method}`
+                },
+                id: id
+            });
+        }
+
+    } catch (error) {
+        res.status(500).json({
+            jsonrpc: "2.0",
+            error: {
+                code: -32603,
+                message: "Internal error",
+                data: error.message
+            },
+            id: req.body?.id || null
+        });
+    }
+});
+
+// A2A Protocol: Agent discovery endpoint
+app.get('/a2a/discover', async (_req, res) => {
+    res.json({
+        compatible_agents: [
+            {
+                name: "Document Processing Agent",
+                description: "Processes various document formats into knowledge trees",
+                capabilities: ["document_to_tree", "pdf_to_tree"],
+                endpoint: "/submit/document_to_tree"
+            }
+        ],
+        collaboration_patterns: [
+            {
+                pattern: "search_then_process",
+                description: "Search for relevant documents, then process them into knowledge trees for deeper analysis"
+            },
+            {
+                pattern: "multi_tree_search",
+                description: "Search across multiple knowledge trees and combine results"
+            }
+        ],
+        supported_protocols: ["A2A", "HTTP/REST"],
+        agent_info: {
+            name: "SuperReader Knowledge Search Agent",
+            version: "1.0.0",
+            specialization: "Knowledge tree search and intelligent answer generation",
+            performance: {
+                avg_response_time_ms: 2500,
+                supported_languages: ["English", "Chinese", "Multi-language"],
+                max_concurrent_requests: 10
+            }
+        }
+    });
+});

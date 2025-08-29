@@ -5,6 +5,33 @@ import * as dotenv from "dotenv"
 import TurndownService from 'turndown'
 import showdown from "showdown"
 
+// A2A Protocol enhanced interfaces
+export interface SearchResult {
+    answer: string;
+    matched_nodes: MatchedNode[];
+    confidence: number;
+    processing_time_ms: number;
+    metadata?: {
+        nodes_evaluated: number;
+        search_depth: number;
+        model_calls: number;
+    };
+}
+
+export interface MatchedNode {
+    id: string;
+    title: string;
+    content: string;
+    relevance_score: number;
+    node_type: string;
+}
+
+export interface SearchOptions {
+    max_nodes?: number;
+    include_metadata?: boolean;
+    confidence_threshold?: number;
+}
+
 dotenv.config();
 
 const model = new ChatOpenAI({
@@ -207,20 +234,109 @@ In your answer, whenever you want to make a statement, you should insert referen
     }
 }
 
-export async function beamSearchMain(question: string, treeId: string, host: string = 'http://0.0.0.0:29999') {
-    const tree = await TreeM.treeFromWsWait(host.replace("http", "ws"), treeId)
-    console.log("Starting beam search...");
-    const matchedNodes = await beamSearch(tree, question);
-    console.log(`Found ${matchedNodes.length} relevant nodes`);
-    const treeUrl = new URL(`?id=${treeId}`, host).toString();
-    if (matchedNodes.length > 0) {
-        console.log("Generating answer...");
-        const answer = await generateAnswer(matchedNodes, question, treeUrl);
-        console.log("Answer:", answer);
-        return answer
-    } else {
-        console.log("No relevant nodes found.");
+// Enhanced search function for A2A protocol support
+export async function enhancedSearch(
+    question: string,
+    treeId: string,
+    host: string = 'http://0.0.0.0:29999',
+    options: SearchOptions = {}
+): Promise<SearchResult> {
+    const startTime = Date.now();
+    const stats = {
+        nodes_evaluated: 0,
+        search_depth: 0,
+        model_calls: 0
+    };
+
+    try {
+        const tree = await TreeM.treeFromWsWait(host.replace("http", "ws"), treeId);
+        console.log("Starting enhanced beam search...");
+        
+        const matchedNodes = await beamSearch(tree, question);
+        stats.nodes_evaluated = matchedNodes.length;
+        
+        const treeUrl = new URL(`?id=${treeId}`, host).toString();
+        let answer = "No relevant information found.";
+        let confidence = 0.0;
+
+        if (matchedNodes.length > 0) {
+            // Limit nodes if max_nodes is specified
+            const nodesToProcess = options.max_nodes 
+                ? matchedNodes.slice(0, options.max_nodes)
+                : matchedNodes;
+            
+            console.log(`Generating answer from ${nodesToProcess.length} nodes...`);
+            answer = await generateAnswer(nodesToProcess, question, treeUrl);
+            confidence = calculateConfidence(nodesToProcess, question);
+            stats.model_calls += 1; // Simplified tracking
+        }
+
+        const processedNodes: MatchedNode[] = matchedNodes.map((node, index) => ({
+            id: node.id,
+            title: typeof node.title === 'string' ? node.title : node.title() || "Untitled",
+            content: getNodeContent(node)?.slice(0, 200) || "No content", // Truncate for metadata
+            relevance_score: calculateRelevanceScore(node, question, index),
+            node_type: node.nodeTypeName() || "unknown"
+        }));
+
+        const result: SearchResult = {
+            answer,
+            matched_nodes: processedNodes,
+            confidence,
+            processing_time_ms: Date.now() - startTime
+        };
+
+        if (options.include_metadata) {
+            result.metadata = stats;
+        }
+
+        return result;
+    } catch (error) {
+        console.error("Error in enhanced search:", error);
+        return {
+            answer: "Error occurred during search: " + error.message,
+            matched_nodes: [],
+            confidence: 0.0,
+            processing_time_ms: Date.now() - startTime
+        };
     }
+}
+
+// Helper functions for A2A enhanced features
+function calculateConfidence(nodes: NodeM[], question: string): number {
+    if (nodes.length === 0) return 0.0;
+    
+    // Simple confidence calculation based on number of nodes and content quality
+    const baseConfidence = Math.min(nodes.length / 5, 1.0); // More nodes = higher confidence, cap at 1.0
+    const contentQuality = nodes.filter(node => {
+        const content = getNodeContent(node);
+        return content && content.length > 50; // Has substantial content
+    }).length / nodes.length;
+    
+    return Math.round((baseConfidence * 0.6 + contentQuality * 0.4) * 100) / 100;
+}
+
+function calculateRelevanceScore(node: NodeM, question: string, index: number): number {
+    // Simple relevance scoring - in practice, you might use more sophisticated methods
+    const content = getNodeContent(node) || "";
+    const title = typeof node.title === 'string' ? node.title : node.title() || "";
+    
+    const questionWords = question.toLowerCase().split(/\s+/);
+    const textToCheck = (title + " " + content).toLowerCase();
+    
+    const matches = questionWords.filter(word => textToCheck.includes(word)).length;
+    const baseScore = matches / questionWords.length;
+    
+    // Higher ranking nodes get slightly higher relevance
+    const rankingBonus = Math.max(0.1, 1 - (index * 0.05));
+    
+    return Math.round(Math.min(baseScore * rankingBonus, 1.0) * 100) / 100;
+}
+
+// Legacy function for backward compatibility
+export async function beamSearchMain(question: string, treeId: string, host: string = 'http://0.0.0.0:29999') {
+    const result = await enhancedSearch(question, treeId, host);
+    return result.answer;
 }
 
 //beamSearchMain("What is the methodology of the paper","aaae6158-7889-4e4a-a200-14d9f54cb467", "https://treer.ai")
