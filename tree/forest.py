@@ -94,12 +94,17 @@ class Renderer:
         return treedata
 
 
-def push_tree_data(tree_data: TreeData, host: str = "http://0.0.0.0:29999", token: Optional[str] = None) -> str:
+def push_tree_data(tree_data: TreeData, host: str = "http://0.0.0.0:29999", token: Optional[str] = None, user_id: Optional[str] = None) -> str:
     root_id = tree_data["metadata"]["rootId"]
-    payload = json.dumps({
+    payload_dict = {
         "tree": tree_data,
         "root_id": str(root_id),
-    })
+    }
+    
+    if user_id is not None:
+        payload_dict["owner_id"] = user_id
+    
+    payload = json.dumps(payload_dict)
     headers = {
         'Content-Type': 'application/json'
     }

@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from typing import Optional
 from pymongo import MongoClient
 
 from tree.forest import push_tree_data
@@ -49,6 +50,7 @@ class NatureRequest(BaseModel):
 class HTMLRequest(BaseModel):
     html_source: str
     file_url: str
+    userid: Optional[str] = None
 
 
 class TreeResponse(BaseModel):
@@ -130,7 +132,7 @@ async def generate_from_html(request: HTMLRequest):
         print(f"Step 2: JSON rendered successfully, size: {len(str(tree_data))} chars")
         
         print("Step 3: Pushing tree data to forest...")
-        tree_id = push_tree_data(tree_data, forest_host, admin_token)
+        tree_id = push_tree_data(tree_data, forest_host, admin_token, user_id=request.userid)
         tree_url = f"{forest_host}?id={tree_id}"
         print(f"Step 3: Tree pushed successfully, ID: {tree_id}")
         

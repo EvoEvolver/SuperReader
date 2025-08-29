@@ -207,7 +207,7 @@ app.post('/upload_document', upload.single('file'), async (req: Request & { file
 });
 
 
-async function processPdfToTree(file_url: string, job_id: string) {
+async function processPdfToTree(file_url: string, job_id: string, userid?: string) {
     try {
         const result = await mineruPipeline(file_url, job_id);
         try {
@@ -217,10 +217,16 @@ async function processPdfToTree(file_url: string, job_id: string) {
                 message: "Generating the tree",
             });
 
-            const res = await axios.post('http://localhost:8080/generate_from_html', {
+            const requestBody: any = {
                 html_source: result,
                 file_url: file_url
-            });
+            };
+            
+            if (userid) {
+                requestBody.userid = userid;
+            }
+
+            const res = await axios.post('http://localhost:8080/generate_from_html', requestBody);
 
             const tree_url = res.data["tree_url"];
 
@@ -245,7 +251,7 @@ async function processPdfToTree(file_url: string, job_id: string) {
     }
 }
 
-async function processDocumentToTree(file_url: string, job_id: string, original_filename: string) {
+async function processDocumentToTree(file_url: string, job_id: string, original_filename: string, userid?: string) {
     try {
         const result = await pandocPipeline(file_url, job_id, original_filename);
         try {
@@ -255,10 +261,16 @@ async function processDocumentToTree(file_url: string, job_id: string, original_
                 message: "Generating the tree",
             });
 
-            const res = await axios.post('http://localhost:8080/generate_from_html', {
+            const requestBody: any = {
                 html_source: result,
                 file_url: file_url
-            });
+            };
+            
+            if (userid) {
+                requestBody.userid = userid;
+            }
+
+            const res = await axios.post('http://localhost:8080/generate_from_html', requestBody);
 
             const tree_url = res.data["tree_url"];
 
@@ -288,6 +300,7 @@ app.post('/submit/document_to_tree', async (req: Request, res: Response) => {
     const file_url = req.body.file_url;
     const file_type = req.body.file_type; // 'pdf' or 'document'
     const original_filename = req.body.original_filename;
+    const userid = req.body.userid; // Optional user ID for tree ownership
     
     if (!file_url) {
         res.status(400).json({
@@ -313,7 +326,7 @@ app.post('/submit/document_to_tree', async (req: Request, res: Response) => {
 
     // Route to appropriate processing pipeline
     if (file_type === 'pdf') {
-        processPdfToTree(file_url, job_id);
+        processPdfToTree(file_url, job_id, userid);
     } else if (file_type === 'document') {
         if (!original_filename) {
             res.status(400).json({
@@ -322,7 +335,7 @@ app.post('/submit/document_to_tree', async (req: Request, res: Response) => {
             });
             return;
         }
-        processDocumentToTree(file_url, job_id, original_filename);
+        processDocumentToTree(file_url, job_id, original_filename, userid);
     } else {
         res.status(400).json({
             status: 'error',
