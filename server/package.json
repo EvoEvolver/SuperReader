@@ -5,13 +5,17 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "nodemon",
-    "build": "node build.js"
+    "build": "node build.js",
+    "test:a2a": "ts-node endpoint_tests/a2a_protocol.ts",
+    "test:a2a-sdk": "ts-node endpoint_tests/a2a_sdk_test.ts",
+    "example:a2a": "ts-node endpoint_tests/a2a_example.ts"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/uuid": "^10.0.0",
     "esbuild": "^0.24.2",
     "nodemon": "^3.1.7",
     "open": "^10.1.2",
@@ -19,6 +23,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "@a2a-js/sdk": "^0.3.0",
     "@forest/schema": "https://gitpkg.vercel.app/EvoEvolver/Forest/packages/schema?dd0cdd03890943a9616e58a7fb564f635e1ec891",
     "@langchain/core": "^0.3.62",
     "@langchain/openai": "^0.5.18",
@@ -37,7 +42,8 @@
     "multer": "^2.0.1",
     "redis": "^5.5.6",
     "showdown": "^2.1.0",
-    "turndown": "^7.2.0"
+    "turndown": "^7.2.0",
+    "uuid": "^11.0.3"
   },
   "packageManager": "pnpm@10.11.1+sha512.e519b9f7639869dc8d5c3c5dfef73b3f091094b0a006d7317353c72b124e80e1afd429732e28705ad6bfa1ee879c1fce46c128ccebd3192101f43dd67c667912"
 }

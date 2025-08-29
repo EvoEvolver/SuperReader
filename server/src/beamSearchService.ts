@@ -249,8 +249,16 @@ export async function enhancedSearch(
     };
 
     try {
-        const tree = await TreeM.treeFromWsWait(host.replace("http", "ws"), treeId);
-        console.log("Starting enhanced beam search...");
+        console.log(`[enhancedSearch] Connecting to tree at: ${host.replace("http", "ws")} with ID: ${treeId}`);
+        
+        // Add timeout to prevent hanging
+        const treePromise = TreeM.treeFromWsWait(host.replace("http", "ws"), treeId);
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Tree connection timeout after 10 seconds')), 10000)
+        );
+        
+        const tree = await Promise.race([treePromise, timeoutPromise]);
+        console.log("[enhancedSearch] Tree connection established, starting beam search...");
         
         const matchedNodes = await beamSearch(tree, question);
         stats.nodes_evaluated = matchedNodes.length;
