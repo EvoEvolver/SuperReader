@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppWait } from './AppWait';
 import AppUpload from "./AppUpload";
 import AppSearcher from "./AppSearcher";
+import AppDiscussion from "./AppDiscussion";
 
 const rootElement = document.getElementById('root');
 
@@ -15,6 +16,7 @@ if (rootElement) {
                 <Route path="/wait" element={<AppWait />} />
                 <Route path="/upload" element={<AppUpload />} />
                 <Route path="/searcher" element={<AppSearcher />} />
+                <Route path="/discuss" element={<AppDiscussion />} />
             </Routes>
         </BrowserRouter>
     );

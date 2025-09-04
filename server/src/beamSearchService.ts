@@ -65,7 +65,14 @@ function getNodeContent(node: NodeM) {
 
 
 function getChildren(tree: TreeM, node: NodeM) {
-    return tree.getChildren(node)
+    try {
+        const children = tree.getChildren(node);
+        // Ensure we always return an iterable, even if tree.getChildren returns undefined
+        return children || [];
+    } catch (error) {
+        console.warn(`[getChildren] Error getting children for node ${node.id}:`, error.message);
+        return [];
+    }
 }
 
 interface PickNextResult {
@@ -74,15 +81,26 @@ interface PickNextResult {
 }
 
 async function pickNext(node: NodeM, requirement: string, tree: TreeM): Promise<PickNextResult> {
-    const children = getChildren(tree, node);
-    const childrenList = Array.from(children);
+    let childrenList: NodeM[];
+    
+    try {
+        const children = getChildren(tree, node);
+        childrenList = Array.from(children);
 
-    if (childrenList.length === 0) {
+        // Reduced logging: console.log(`[pickNext] Node ${node.id} has ${childrenList.length} children`);
+
+        if (childrenList.length === 0) {
+            // Reduced logging: console.log("[pickNext] No children found, returning empty arrays");
+            return {matchedNodes: [], parentNodes: []};
+        }
+
+        if (childrenList.length === 1) {
+            // Reduced logging: console.log("[pickNext] Single child found, returning it directly");
+            return {matchedNodes: [childrenList[0]], parentNodes: []};
+        }
+    } catch (error) {
+        console.error(`[pickNext] Error processing node ${node.id}:`, error);
         return {matchedNodes: [], parentNodes: []};
-    }
-
-    if (childrenList.length === 1) {
-        return {matchedNodes: [childrenList[0]], parentNodes: []};
     }
 
     const childrenInPrompt: string[] = [];
@@ -144,10 +162,17 @@ Output a JSON dict with key "matched_indices" for a list of indices of the child
 }
 
 async function beamSearch(tree: TreeM, query: string): Promise<NodeM[]> {
-    const root = tree.getRoot();
-    const nodeQueue: NodeM[] = [root];
-    const visitedNodes = new Set<string>();
-    const matchedNodesSet = new Set<NodeM>();
+    try {
+        const root = tree.getRoot();
+        if (!root) {
+            console.error("[beamSearch] Tree root is null or undefined");
+            return [];
+        }
+        
+        console.log(`[beamSearch] Starting search with root node: ${root.id}`);
+        const nodeQueue: NodeM[] = [root];
+        const visitedNodes = new Set<string>();
+        const matchedNodesSet = new Set<NodeM>();
 
     while (nodeQueue.length > 0) {
         const nodeTouched: NodeM[] = [];
@@ -177,14 +202,24 @@ async function beamSearch(tree: TreeM, query: string): Promise<NodeM[]> {
     }
 
     return Array.from(matchedNodesSet);
+    } catch (error) {
+        console.error("[beamSearch] Error during beam search:", error);
+        return [];
+    }
 }
 
 async function generateAnswer(nodes: NodeM[], question: string, treeUrl): Promise<string> {
+    console.log(`[generateAnswer] Starting answer generation with ${nodes.length} nodes`);
+    console.log(`[generateAnswer] Question: "${question}"`);
+    
     const docToPrompt = nodes.map((node, index) => {
         const title = typeof node.title === 'string' ? node.title : "";
         const content = getNodeContent(node);
+        console.log(`[generateAnswer] Processing node ${index}: ${title} (${content?.length || 0} chars)`);
         return `${index}: ${title}\n${content}`;
     }).join("\n\n");
+
+    console.log(`[generateAnswer] Document prepared, total length: ${docToPrompt.length} characters`);
 
     const promptTemplate = PromptTemplate.fromTemplate(`
 You are required to answer the question based on the following document.
@@ -199,21 +234,32 @@ You answer in markdown directly without any formatting.
 In your answer, whenever you want to make a statement, you should insert reference tags <ref id="index"/> where index is the number of the document section you're referencing.
 `);
 
-
+    console.log(`[generateAnswer] Prompt template created, preparing chain...`);
+    
     // @ts-ignore
     const chain = promptTemplate.pipe(model);
+    
+    console.log(`[generateAnswer] Chain created, invoking LLM model...`);
 
     try {
         const response = await chain.invoke({
             document: docToPrompt,
             question: question
         });
+        
+        console.log(`[generateAnswer] LLM response received, length: ${response.content?.length || 0} chars`);
 
         const markdownAnswer = response.content as string;
+        console.log(`[generateAnswer] Markdown answer extracted, length: ${markdownAnswer?.length || 0} chars`);
+        
         const converter = new showdown.Converter();
+        console.log(`[generateAnswer] Showdown converter created, converting to HTML...`);
+        
         const htmlAnswer = converter.makeHtml(markdownAnswer);
+        console.log(`[generateAnswer] HTML conversion completed, length: ${htmlAnswer?.length || 0} chars`);
 
         // parse the html, replace <ref id="index"/> with <a href="#index">[ref]</a>
+        console.log(`[generateAnswer] Starting reference replacement...`);
         const refRegex = /<ref id="(\d+)"\/>/g;
         const getNodeId = (index: number) => {
             const node = nodes[index];
@@ -227,9 +273,14 @@ In your answer, whenever you want to make a statement, you should insert referen
         const htmlAnswerWithRefs = htmlAnswer.replace(refRegex, (match, index) => {
             return `<a href="${treeUrl}&n=${getNodeId(index)}" target="_blank">[ref]</a>`;
         });
+        console.log(`[generateAnswer] Reference replacement completed, final length: ${htmlAnswerWithRefs?.length || 0} chars`);
+        console.log(`[generateAnswer] Successfully completed answer generation`);
+        
         return htmlAnswerWithRefs
     } catch (error) {
-        console.error("Error generating answer:", error);
+        console.error("[generateAnswer] Error generating answer:", error);
+        console.error("[generateAnswer] Error stack:", error.stack);
+        console.error("[generateAnswer] Error occurred during answer generation process");
         return "Unable to generate answer due to an error.";
     }
 }
@@ -249,16 +300,39 @@ export async function enhancedSearch(
     };
 
     try {
-        console.log(`[enhancedSearch] Connecting to tree at: ${host.replace("http", "ws")} with ID: ${treeId}`);
+        const wsHost = host.replace("http", "ws");
+        console.log(`[enhancedSearch] Starting enhanced search...`);
+        console.log(`[enhancedSearch] Input parameters:`);
+        console.log(`  Question: "${question}"`);
+        console.log(`  TreeID: ${treeId}`);
+        console.log(`  Original Host: ${host}`);
+        console.log(`  WebSocket Host: ${wsHost}`);
+        console.log(`  Options:`, options);
+        
+        console.log(`[enhancedSearch] Attempting WebSocket connection...`);
         
         // Add timeout to prevent hanging
-        const treePromise = TreeM.treeFromWsWait(host.replace("http", "ws"), treeId);
+        const treePromise = TreeM.treeFromWsWait(wsHost, treeId);
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Tree connection timeout after 10 seconds')), 10000)
+            setTimeout(() => {
+                console.log(`[enhancedSearch] WebSocket connection timeout after 60 seconds!`);
+                reject(new Error(`Tree connection timeout after 60 seconds. Host: ${wsHost}, TreeID: ${treeId}`));
+            }, 60000)
         );
         
         const tree = await Promise.race([treePromise, timeoutPromise]);
-        console.log("[enhancedSearch] Tree connection established, starting beam search...");
+        
+        if (!tree) {
+            throw new Error(`Failed to connect to tree. Host: ${wsHost}, TreeID: ${treeId}`);
+        }
+        
+        // Verify tree has a root
+        const root = tree.getRoot();
+        if (!root) {
+            throw new Error(`Tree has no root node. TreeID: ${treeId}`);
+        }
+        
+        console.log(`[enhancedSearch] Tree connection established, root: ${root.id}, starting beam search...`);
         
         const matchedNodes = await beamSearch(tree, question);
         stats.nodes_evaluated = matchedNodes.length;

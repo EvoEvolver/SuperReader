@@ -13,6 +13,8 @@ import path from "path";
 import {getJobProgress, JobStatus, setJobProgress} from "./jobStatus";
 import {beamSearchMain, enhancedSearch, SearchOptions} from "./beamSearchService";
 import { SearchAgentExecutor } from "./searchAgentExecutor";
+import { AgentRegistry } from "./agentRegistry";
+import { DiscussionCoordinator } from "./discussionCoordinator";
 import {
     AgentCard,
     TaskStore,
@@ -39,6 +41,12 @@ dotenv.config();
 
 const app: Express = express();
 const port = 8081;
+
+// Initialize Paper Agent Registry
+const agentRegistry = new AgentRegistry();
+
+// Initialize Discussion Coordinator  
+const discussionCoordinator = new DiscussionCoordinator();
 
 app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb'}));
@@ -572,4 +580,477 @@ app.get('/a2a/discover', async (_req, res) => {
             }
         }
     });
+});
+
+// =====================================
+// Paper Agent Management Endpoints
+// =====================================
+
+/**
+ * Register a new paper agent for a specific tree ID
+ * POST /paper-agents/register
+ */
+app.post('/paper-agents/register', async (req: Request, res: Response) => {
+    try {
+        const { treeId, paperTitle, host, maxNodes } = req.body;
+        
+        if (!treeId) {
+            return res.status(400).json({
+                error: 'Missing required parameter: treeId'
+            });
+        }
+
+        console.log(`[API] Registering paper agent for tree: ${treeId}`);
+
+        // Check if agent already exists
+        const existingAgent = agentRegistry.getAgent(treeId);
+        if (existingAgent) {
+            return res.json({
+                message: 'Agent already exists',
+                agent_url: existingAgent.getAgentUrl(),
+                agent_card: existingAgent.getAgentCard(),
+                status: 'existing'
+            });
+        }
+
+        // Register new agent
+        const agent = await agentRegistry.registerPaperAgent(treeId, {
+            paperTitle,
+            host,
+            maxNodes
+        });
+
+        res.json({
+            message: 'Paper agent registered successfully',
+            agent_url: agent.getAgentUrl(),
+            agent_card: agent.getAgentCard(),
+            tree_id: treeId,
+            status: 'created'
+        });
+
+    } catch (error) {
+        console.error('[API] Error registering paper agent:', error);
+        res.status(500).json({
+            error: 'Failed to register paper agent',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Get agent information for a specific tree ID
+ * GET /paper-agents/:treeId
+ */
+app.get('/paper-agents/:treeId', async (req: Request, res: Response) => {
+    try {
+        const { treeId } = req.params;
+        const agentInfo = agentRegistry.getAgentInfo(treeId);
+        
+        if (!agentInfo) {
+            return res.status(404).json({
+                error: 'Paper agent not found',
+                tree_id: treeId
+            });
+        }
+
+        res.json({
+            tree_id: treeId,
+            paper_title: agentInfo.config.paperTitle,
+            agent_url: agentInfo.agent.getAgentUrl(),
+            agent_card: agentInfo.agentCard,
+            status: agentInfo.status,
+            created_at: agentInfo.createdAt,
+            last_active: agentInfo.lastActive,
+            config: {
+                host: agentInfo.config.host,
+                max_nodes: agentInfo.config.maxNodes
+            }
+        });
+
+    } catch (error) {
+        console.error('[API] Error getting paper agent:', error);
+        res.status(500).json({
+            error: 'Failed to get paper agent information',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Get agent card for a specific tree ID
+ * GET /paper-agents/:treeId/card
+ */
+app.get('/paper-agents/:treeId/card', async (req: Request, res: Response) => {
+    try {
+        const { treeId } = req.params;
+        const agent = agentRegistry.getAgent(treeId);
+        
+        if (!agent) {
+            return res.status(404).json({
+                error: 'Paper agent not found',
+                tree_id: treeId
+            });
+        }
+
+        res.json(agent.getAgentCard());
+
+    } catch (error) {
+        console.error('[API] Error getting agent card:', error);
+        res.status(500).json({
+            error: 'Failed to get agent card',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * List all active paper agents
+ * GET /paper-agents
+ */
+app.get('/paper-agents', async (req: Request, res: Response) => {
+    try {
+        const agents = agentRegistry.listActiveAgents();
+        const stats = agentRegistry.getStats();
+
+        res.json({
+            agents,
+            stats,
+            total_count: agents.length
+        });
+
+    } catch (error) {
+        console.error('[API] Error listing paper agents:', error);
+        res.status(500).json({
+            error: 'Failed to list paper agents',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Remove a paper agent
+ * DELETE /paper-agents/:treeId
+ */
+app.delete('/paper-agents/:treeId', async (req: Request, res: Response) => {
+    try {
+        const { treeId } = req.params;
+        
+        const removed = await agentRegistry.unregisterPaperAgent(treeId);
+        
+        if (removed) {
+            res.json({
+                message: 'Paper agent removed successfully',
+                tree_id: treeId
+            });
+        } else {
+            res.status(404).json({
+                error: 'Paper agent not found',
+                tree_id: treeId
+            });
+        }
+
+    } catch (error) {
+        console.error('[API] Error removing paper agent:', error);
+        res.status(500).json({
+            error: 'Failed to remove paper agent',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Health check for all paper agents
+ * GET /paper-agents/health
+ */
+app.get('/paper-agents/health', async (req: Request, res: Response) => {
+    try {
+        const healthReport = await agentRegistry.healthCheck();
+        res.json(healthReport);
+
+    } catch (error) {
+        console.error('[API] Error in health check:', error);
+        res.status(500).json({
+            error: 'Failed to perform health check',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Cleanup inactive agents
+ * POST /paper-agents/cleanup
+ */
+app.post('/paper-agents/cleanup', async (req: Request, res: Response) => {
+    try {
+        const { maxIdleTimeMs } = req.body;
+        const cleanedCount = await agentRegistry.cleanupInactiveAgents(maxIdleTimeMs);
+        
+        res.json({
+            message: 'Cleanup completed',
+            cleaned_agents: cleanedCount
+        });
+
+    } catch (error) {
+        console.error('[API] Error in cleanup:', error);
+        res.status(500).json({
+            error: 'Failed to cleanup agents',
+            details: error.message
+        });
+    }
+});
+
+// =====================================
+// A2A Discussion Management Endpoints
+// =====================================
+
+/**
+ * Initiate a discussion between two paper agents
+ * POST /discussions/initiate
+ */
+app.post('/discussions/initiate', async (req: Request, res: Response) => {
+    try {
+        const { topic, agent1TreeId, agent2TreeId, maxRounds = 5 } = req.body;
+        
+        if (!topic || !agent1TreeId || !agent2TreeId) {
+            return res.status(400).json({
+                error: 'Missing required parameters: topic, agent1TreeId, agent2TreeId'
+            });
+        }
+
+        // Verify both agents exist
+        const agent1 = agentRegistry.getAgent(agent1TreeId);
+        const agent2 = agentRegistry.getAgent(agent2TreeId);
+
+        if (!agent1 || !agent2) {
+            return res.status(404).json({
+                error: 'One or both paper agents not found. Please register agents first.'
+            });
+        }
+
+        // Generate shared contextId for A2A protocol
+        const sharedContextId = randomUUID();
+        
+        // Create discussion configuration
+        const discussionConfig = {
+            topic,
+            participants: [agent1.getAgentUrl(), agent2.getAgentUrl()],
+            sharedContextId,
+            maxRounds,
+            timeoutMs: 30 * 60 * 1000 // 30 minutes
+        };
+
+        console.log(`[API] Initiating discussion between agents:`, {
+            agent1: agent1.getAgentCard().name,
+            agent2: agent2.getAgentCard().name,
+            topic
+        });
+
+        const discussionId = await discussionCoordinator.initiateDiscussion(discussionConfig);
+
+        res.json({
+            message: 'Discussion initiated successfully',
+            discussion_id: discussionId,
+            context_id: sharedContextId,
+            topic,
+            participants: {
+                agent1: {
+                    tree_id: agent1TreeId,
+                    name: agent1.getAgentCard().name,
+                    url: agent1.getAgentUrl()
+                },
+                agent2: {
+                    tree_id: agent2TreeId, 
+                    name: agent2.getAgentCard().name,
+                    url: agent2.getAgentUrl()
+                }
+            },
+            max_rounds: maxRounds,
+            status: 'initiated'
+        });
+
+    } catch (error) {
+        console.error('[API] Error initiating discussion:', error);
+        res.status(500).json({
+            error: 'Failed to initiate discussion',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Get discussion coordinator statistics
+ * GET /discussions/stats
+ */
+app.get('/discussions/stats', async (req: Request, res: Response) => {
+    try {
+        const stats = discussionCoordinator.getStats();
+        res.json(stats);
+
+    } catch (error) {
+        console.error('[API] Error getting discussion stats:', error);
+        res.status(500).json({
+            error: 'Failed to get discussion statistics',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Get discussion status and history
+ * GET /discussions/:discussionId
+ */
+app.get('/discussions/:discussionId', async (req: Request, res: Response) => {
+    try {
+        const { discussionId } = req.params;
+        const discussion = discussionCoordinator.getDiscussion(discussionId);
+        
+        if (!discussion) {
+            return res.status(404).json({
+                error: 'Discussion not found',
+                discussion_id: discussionId
+            });
+        }
+
+        res.json({
+            discussion_id: discussionId,
+            context_id: discussion.contextId,
+            topic: discussion.topic,
+            status: discussion.status,
+            current_round: discussion.currentRound,
+            max_rounds: discussion.maxRounds,
+            participants: discussion.participants,
+            message_count: discussion.messageHistory.length,
+            start_time: discussion.startTime,
+            last_activity: discussion.lastActivity,
+            recent_messages: discussion.messageHistory
+                .slice(-5)
+                .map(msg => ({
+                    role: msg.role,
+                    text: msg.parts[0]?.text?.slice(0, 200) + '...',
+                    round: msg.metadata.discussionRound,
+                    timestamp: msg.messageId
+                }))
+        });
+
+    } catch (error) {
+        console.error('[API] Error getting discussion:', error);
+        res.status(500).json({
+            error: 'Failed to get discussion information',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Get full discussion history
+ * GET /discussions/:discussionId/history
+ */
+app.get('/discussions/:discussionId/history', async (req: Request, res: Response) => {
+    try {
+        const { discussionId } = req.params;
+        const discussion = discussionCoordinator.getDiscussion(discussionId);
+        
+        if (!discussion) {
+            return res.status(404).json({
+                error: 'Discussion not found'
+            });
+        }
+
+        res.json({
+            discussion_id: discussionId,
+            topic: discussion.topic,
+            total_rounds: discussion.currentRound - 1,
+            messages: discussion.messageHistory.map(msg => ({
+                message_id: msg.messageId,
+                role: msg.role,
+                content: msg.parts[0]?.text || '',
+                round: msg.metadata.discussionRound,
+                participant_role: msg.metadata.participantRole,
+                metadata: {
+                    confidence: msg.metadata.confidence,
+                    processing_time_ms: msg.metadata.processing_time_ms
+                }
+            }))
+        });
+
+    } catch (error) {
+        console.error('[API] Error getting discussion history:', error);
+        res.status(500).json({
+            error: 'Failed to get discussion history',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * List active discussions
+ * GET /discussions
+ */
+app.get('/discussions', async (req: Request, res: Response) => {
+    try {
+        const discussions = discussionCoordinator.getActiveDiscussions();
+        const stats = discussionCoordinator.getStats();
+
+        res.json({
+            discussions: discussions.map(d => ({
+                discussion_id: d.discussionId,
+                topic: d.topic,
+                status: d.status,
+                current_round: d.currentRound,
+                max_rounds: d.maxRounds,
+                participants: d.participants,
+                start_time: d.startTime,
+                last_activity: d.lastActivity
+            })),
+            statistics: stats,
+            total_count: discussions.length
+        });
+
+    } catch (error) {
+        console.error('[API] Error listing discussions:', error);
+        res.status(500).json({
+            error: 'Failed to list discussions',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Conclude a discussion manually
+ * POST /discussions/:discussionId/conclude
+ */
+app.post('/discussions/:discussionId/conclude', async (req: Request, res: Response) => {
+    try {
+        const { discussionId } = req.params;
+        const summary = await discussionCoordinator.concludeDiscussion(discussionId);
+
+        res.json({
+            message: 'Discussion concluded successfully',
+            discussion_id: discussionId,
+            summary
+        });
+
+    } catch (error) {
+        console.error('[API] Error concluding discussion:', error);
+        res.status(500).json({
+            error: 'Failed to conclude discussion',
+            details: error.message
+        });
+    }
+});
+
+// =====================================
+// Graceful Shutdown Handler
+// =====================================
+
+process.on('SIGTERM', async () => {
+    console.log('SIGTERM received, shutting down gracefully...');
+    await agentRegistry.shutdown();
+    process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+    console.log('SIGINT received, shutting down gracefully...');
+    await agentRegistry.shutdown();
+    process.exit(0);
 });
