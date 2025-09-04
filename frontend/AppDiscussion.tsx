@@ -92,23 +92,35 @@ const AppDiscussion: React.FC = () => {
         if (state.isPolling && state.discussionId) {
             pollingIntervalRef.current = setInterval(async () => {
                 try {
-                    const [status, history] = await Promise.all([
-                        getDiscussionStatus(state.discussionId!),
-                        getDiscussionHistory(state.discussionId!)
-                    ]);
+                    console.log(`[AppDiscussion] Polling discussion ${state.discussionId}`);
+                    
+                    // Only fetch discussion history, which includes both status and messages
+                    const history = await getDiscussionHistory(state.discussionId!);
+                    
+                    console.log(`[AppDiscussion] Full history response:`, history);
+                    console.log(`[AppDiscussion] Status from history:`, history.status);
+                    console.log(`[AppDiscussion] Messages count:`, history.messages?.length || 0);
+                    console.log(`[AppDiscussion] Discussion status:`, history.status?.status);
+                    
+                    // Format messages properly
+                    const formattedMessages = history.messages?.map(formatDiscussionMessage) || [];
                     
                     setState(prev => ({
                         ...prev,
-                        discussionStatus: status,
-                        messages: history.messages.map(formatDiscussionMessage)
+                        discussionStatus: history.status,
+                        messages: formattedMessages
                     }));
 
                     // Stop polling if discussion is completed
-                    if (status.status === 'completed' || status.status === 'concluded' || status.status === 'error') {
+                    if (history.status?.status === 'completed' || history.status?.status === 'concluded' || history.status?.status === 'error') {
+                        console.log(`[AppDiscussion] Discussion finished with status: ${history.status.status}, stopping polling`);
                         setState(prev => ({ ...prev, isPolling: false }));
+                    } else {
+                        console.log(`[AppDiscussion] Discussion continues, status: ${history.status?.status}, round: ${history.status?.currentRound}/${history.status?.maxRounds}`);
                     }
                 } catch (error) {
-                    console.error('Polling error:', error);
+                    console.error('[AppDiscussion] Polling error:', error);
+                    // Don't stop polling on single error, but log it
                 }
             }, 3000); // Poll every 3 seconds
         }
@@ -227,11 +239,17 @@ const AppDiscussion: React.FC = () => {
     };
 
     const getAgentAvatar = (agentName: string) => {
-        return agentName === state.agentAName ? (
-            <Avatar sx={{ bgcolor: 'primary.main' }}><Person /></Avatar>
-        ) : (
-            <Avatar sx={{ bgcolor: 'secondary.main' }}><SmartToy /></Avatar>
-        );
+        if (agentName === 'Discussion Coordinator') {
+            return <Avatar sx={{ bgcolor: 'warning.main' }}>🤝</Avatar>;
+        } else if (agentName === 'Discussion Analysis') {
+            return <Avatar sx={{ bgcolor: 'info.main' }}>📊</Avatar>;
+        } else if (agentName === 'Discussion Summary') {
+            return <Avatar sx={{ bgcolor: 'success.main' }}>📋</Avatar>;
+        } else if (agentName === state.agentAName) {
+            return <Avatar sx={{ bgcolor: 'primary.main' }}><Person /></Avatar>;
+        } else {
+            return <Avatar sx={{ bgcolor: 'secondary.main' }}><SmartToy /></Avatar>;
+        }
     };
 
     const getStatusColor = (status: string) => {
@@ -405,10 +423,26 @@ const AppDiscussion: React.FC = () => {
 
             {/* Messages */}
             <Box sx={{ height: '60vh', overflow: 'auto', mb: 2 }}>
-                {state.messages.length === 0 && !state.isPolling && (
+                {/* Debug Info */}
+                <Paper elevation={0} sx={{ p: 1, mb: 1, bgcolor: '#f5f5f5' }}>
+                    <Typography variant="caption" color="text.secondary">
+                        DEBUG: Messages: {state.messages.length}, Polling: {state.isPolling ? 'Yes' : 'No'}, Status: {state.discussionStatus?.status || 'none'}
+                    </Typography>
+                </Paper>
+
+                {state.messages.length === 0 && state.isPolling && (
                     <Paper elevation={1} sx={{ p: 4, textAlign: 'center' }}>
                         <Typography color="text.secondary">
                             Discussion is starting... Please wait for agents to begin the conversation.
+                        </Typography>
+                        <CircularProgress sx={{ mt: 2 }} size={24} />
+                    </Paper>
+                )}
+
+                {state.messages.length === 0 && !state.isPolling && (
+                    <Paper elevation={1} sx={{ p: 4, textAlign: 'center' }}>
+                        <Typography color="text.secondary">
+                            No discussion content available.
                         </Typography>
                     </Paper>
                 )}

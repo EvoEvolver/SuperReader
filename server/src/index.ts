@@ -15,6 +15,7 @@ import {beamSearchMain, enhancedSearch, SearchOptions} from "./beamSearchService
 import { SearchAgentExecutor } from "./searchAgentExecutor";
 import { AgentRegistry } from "./agentRegistry";
 import { DiscussionCoordinator } from "./discussionCoordinator";
+import { IntelligentDiscussionCoordinator, DiscussionConfig } from "./intelligentDiscussionCoordinator";
 import {
     AgentCard,
     TaskStore,
@@ -47,6 +48,9 @@ const agentRegistry = new AgentRegistry();
 
 // Initialize Discussion Coordinator  
 const discussionCoordinator = new DiscussionCoordinator();
+
+// Initialize Intelligent Discussion Coordinator
+const intelligentDiscussionCoordinator = new IntelligentDiscussionCoordinator();
 
 app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb'}));
@@ -804,12 +808,12 @@ app.post('/paper-agents/cleanup', async (req: Request, res: Response) => {
 // =====================================
 
 /**
- * Initiate a discussion between two paper agents
+ * Initiate an intelligent discussion between two paper agents
  * POST /discussions/initiate
  */
 app.post('/discussions/initiate', async (req: Request, res: Response) => {
     try {
-        const { topic, agent1TreeId, agent2TreeId, maxRounds = 5 } = req.body;
+        const { topic, agent1TreeId, agent2TreeId, maxRounds = 5, agent1Name, agent2Name } = req.body;
         
         if (!topic || !agent1TreeId || !agent2TreeId) {
             return res.status(400).json({
@@ -817,51 +821,41 @@ app.post('/discussions/initiate', async (req: Request, res: Response) => {
             });
         }
 
-        // Verify both agents exist
-        const agent1 = agentRegistry.getAgent(agent1TreeId);
-        const agent2 = agentRegistry.getAgent(agent2TreeId);
-
-        if (!agent1 || !agent2) {
-            return res.status(404).json({
-                error: 'One or both paper agents not found. Please register agents first.'
-            });
-        }
-
-        // Generate shared contextId for A2A protocol
-        const sharedContextId = randomUUID();
-        
-        // Create discussion configuration
-        const discussionConfig = {
+        console.log(`[API] Starting intelligent discussion:`, {
             topic,
-            participants: [agent1.getAgentUrl(), agent2.getAgentUrl()],
-            sharedContextId,
-            maxRounds,
-            timeoutMs: 30 * 60 * 1000 // 30 minutes
-        };
-
-        console.log(`[API] Initiating discussion between agents:`, {
-            agent1: agent1.getAgentCard().name,
-            agent2: agent2.getAgentCard().name,
-            topic
+            agent1TreeId,
+            agent2TreeId,
+            maxRounds
         });
 
-        const discussionId = await discussionCoordinator.initiateDiscussion(discussionConfig);
+        // Create discussion configuration for intelligent coordinator
+        const discussionConfig: DiscussionConfig = {
+            topic,
+            maxRounds,
+            agentA: {
+                treeId: agent1TreeId,
+                name: agent1Name || 'Agent A'
+            },
+            agentB: {
+                treeId: agent2TreeId,
+                name: agent2Name || 'Agent B'
+            }
+        };
+
+        const discussionId = await intelligentDiscussionCoordinator.initiateDiscussion(discussionConfig);
 
         res.json({
-            message: 'Discussion initiated successfully',
-            discussion_id: discussionId,
-            context_id: sharedContextId,
+            message: 'Intelligent discussion initiated successfully',
+            discussionId: discussionId,
             topic,
             participants: {
                 agent1: {
                     tree_id: agent1TreeId,
-                    name: agent1.getAgentCard().name,
-                    url: agent1.getAgentUrl()
+                    name: agent1Name || 'Agent A'
                 },
                 agent2: {
                     tree_id: agent2TreeId, 
-                    name: agent2.getAgentCard().name,
-                    url: agent2.getAgentUrl()
+                    name: agent2Name || 'Agent B'
                 }
             },
             max_rounds: maxRounds,
@@ -869,7 +863,7 @@ app.post('/discussions/initiate', async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        console.error('[API] Error initiating discussion:', error);
+        console.error('[API] Error initiating intelligent discussion:', error);
         res.status(500).json({
             error: 'Failed to initiate discussion',
             details: error.message
@@ -896,44 +890,63 @@ app.get('/discussions/stats', async (req: Request, res: Response) => {
 });
 
 /**
- * Get discussion status and history
+ * Get intelligent discussion status
  * GET /discussions/:discussionId
  */
 app.get('/discussions/:discussionId', async (req: Request, res: Response) => {
     try {
         const { discussionId } = req.params;
-        const discussion = discussionCoordinator.getDiscussion(discussionId);
+        const discussion = intelligentDiscussionCoordinator.getDiscussionState(discussionId);
         
         if (!discussion) {
             return res.status(404).json({
                 error: 'Discussion not found',
-                discussion_id: discussionId
+                discussionId: discussionId
             });
         }
 
         res.json({
-            discussion_id: discussionId,
-            context_id: discussion.contextId,
+            discussionId: discussionId,
             topic: discussion.topic,
             status: discussion.status,
-            current_round: discussion.currentRound,
-            max_rounds: discussion.maxRounds,
-            participants: discussion.participants,
-            message_count: discussion.messageHistory.length,
-            start_time: discussion.startTime,
-            last_activity: discussion.lastActivity,
-            recent_messages: discussion.messageHistory
-                .slice(-5)
-                .map(msg => ({
-                    role: msg.role,
-                    text: msg.parts[0]?.text?.slice(0, 200) + '...',
-                    round: msg.metadata.discussionRound,
-                    timestamp: msg.messageId
-                }))
+            currentRound: discussion.currentRound,
+            maxRounds: discussion.maxRounds,
+            participants: {
+                agent1Url: `Agent: ${discussion.agentAInfo.name}`,
+                agent2Url: `Agent: ${discussion.agentBInfo.name}`
+            },
+            messageCount: discussion.turns.length * 4, // question + 2 responses + analysis per turn
+            startedAt: discussion.startTime.toISOString(),
+            lastMessageAt: discussion.turns.length > 0 ? 
+                discussion.turns[discussion.turns.length - 1].timestamp : 
+                discussion.startTime.toISOString(),
+            completedAt: discussion.endTime?.toISOString(),
+            recent_messages: discussion.turns.slice(-2).flatMap(turn => [
+                {
+                    role: 'coordinator',
+                    text: turn.question,
+                    round: turn.round,
+                    timestamp: turn.timestamp
+                },
+                {
+                    role: 'agent',
+                    text: turn.agentAResponse.slice(0, 200) + '...',
+                    agent_name: discussion.agentAInfo.name,
+                    round: turn.round,
+                    timestamp: turn.timestamp
+                },
+                {
+                    role: 'agent', 
+                    text: turn.agentBResponse.slice(0, 200) + '...',
+                    agent_name: discussion.agentBInfo.name,
+                    round: turn.round,
+                    timestamp: turn.timestamp
+                }
+            ])
         });
 
     } catch (error) {
-        console.error('[API] Error getting discussion:', error);
+        console.error('[API] Error getting intelligent discussion:', error);
         res.status(500).json({
             error: 'Failed to get discussion information',
             details: error.message
@@ -942,13 +955,13 @@ app.get('/discussions/:discussionId', async (req: Request, res: Response) => {
 });
 
 /**
- * Get full discussion history
+ * Get full intelligent discussion history
  * GET /discussions/:discussionId/history
  */
 app.get('/discussions/:discussionId/history', async (req: Request, res: Response) => {
     try {
         const { discussionId } = req.params;
-        const discussion = discussionCoordinator.getDiscussion(discussionId);
+        const discussion = intelligentDiscussionCoordinator.getDiscussionState(discussionId);
         
         if (!discussion) {
             return res.status(404).json({
@@ -956,25 +969,80 @@ app.get('/discussions/:discussionId/history', async (req: Request, res: Response
             });
         }
 
+        // Convert turns into message format that frontend expects
+        const messages = discussion.turns.flatMap(turn => [
+            {
+                messageId: `coordinator-${turn.round}`,
+                role: 'user', // coordinator question
+                content: turn.question,
+                timestamp: turn.timestamp,
+                agentId: 'coordinator',
+                agentName: 'Discussion Coordinator',
+                roundNumber: turn.round
+            },
+            {
+                messageId: `agent-a-${turn.round}`,
+                role: 'assistant', // agent response
+                content: turn.agentAResponse,
+                timestamp: turn.timestamp,
+                agentId: discussion.agentAInfo.treeId,
+                agentName: discussion.agentAInfo.name,
+                roundNumber: turn.round
+            },
+            {
+                messageId: `agent-b-${turn.round}`,
+                role: 'assistant', // agent response
+                content: turn.agentBResponse,
+                timestamp: turn.timestamp,
+                agentId: discussion.agentBInfo.treeId,
+                agentName: discussion.agentBInfo.name,
+                roundNumber: turn.round
+            },
+            {
+                messageId: `analysis-${turn.round}`,
+                role: 'system', // coordinator analysis
+                content: turn.coordinatorAnalysis,
+                timestamp: turn.timestamp,
+                agentId: 'coordinator',
+                agentName: 'Discussion Analysis',
+                roundNumber: turn.round
+            }
+        ]);
+
+        // Add summary as final message if discussion is completed
+        if (discussion.status === 'completed' && discussion.summary) {
+            messages.push({
+                messageId: `summary-${discussionId}`,
+                role: 'system',
+                content: discussion.summary,
+                timestamp: discussion.endTime?.toISOString() || new Date().toISOString(),
+                agentId: 'coordinator',
+                agentName: 'Discussion Summary',
+                roundNumber: discussion.turns.length + 1
+            });
+        }
+
         res.json({
-            discussion_id: discussionId,
-            topic: discussion.topic,
-            total_rounds: discussion.currentRound - 1,
-            messages: discussion.messageHistory.map(msg => ({
-                message_id: msg.messageId,
-                role: msg.role,
-                content: msg.parts[0]?.text || '',
-                round: msg.metadata.discussionRound,
-                participant_role: msg.metadata.participantRole,
-                metadata: {
-                    confidence: msg.metadata.confidence,
-                    processing_time_ms: msg.metadata.processing_time_ms
-                }
-            }))
+            discussionId,
+            messages,
+            status: {
+                discussionId,
+                status: discussion.status,
+                currentRound: discussion.currentRound,
+                maxRounds: discussion.maxRounds,
+                topic: discussion.topic,
+                startedAt: discussion.startTime.toISOString(),
+                completedAt: discussion.endTime?.toISOString(),
+                participantCount: 2,
+                messageCount: messages.length,
+                lastMessageAt: discussion.turns.length > 0 ? 
+                    discussion.turns[discussion.turns.length - 1].timestamp :
+                    discussion.startTime.toISOString()
+            }
         });
 
     } catch (error) {
-        console.error('[API] Error getting discussion history:', error);
+        console.error('[API] Error getting intelligent discussion history:', error);
         res.status(500).json({
             error: 'Failed to get discussion history',
             details: error.message
@@ -1016,22 +1084,25 @@ app.get('/discussions', async (req: Request, res: Response) => {
 });
 
 /**
- * Conclude a discussion manually
+ * Conclude an intelligent discussion manually
  * POST /discussions/:discussionId/conclude
  */
 app.post('/discussions/:discussionId/conclude', async (req: Request, res: Response) => {
     try {
         const { discussionId } = req.params;
-        const summary = await discussionCoordinator.concludeDiscussion(discussionId);
-
+        await intelligentDiscussionCoordinator.concludeDiscussion(discussionId);
+        
+        const discussion = intelligentDiscussionCoordinator.getDiscussionState(discussionId);
+        
         res.json({
-            message: 'Discussion concluded successfully',
-            discussion_id: discussionId,
-            summary
+            message: 'Intelligent discussion concluded successfully',
+            discussionId: discussionId,
+            status: discussion?.status || 'concluded',
+            summary: discussion?.summary || 'Discussion concluded manually'
         });
 
     } catch (error) {
-        console.error('[API] Error concluding discussion:', error);
+        console.error('[API] Error concluding intelligent discussion:', error);
         res.status(500).json({
             error: 'Failed to conclude discussion',
             details: error.message

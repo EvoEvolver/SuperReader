@@ -96,6 +96,8 @@ export async function initiateDiscussion(config: DiscussionConfig): Promise<{dis
             topic: config.topic,
             agent1TreeId: agent1TreeId,
             agent2TreeId: agent2TreeId,
+            agent1Name: config.agentA.name,
+            agent2Name: config.agentB.name,
             maxRounds: config.maxRounds
         }),
     });

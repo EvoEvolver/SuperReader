@@ -299,6 +299,7 @@ export async function enhancedSearch(
         model_calls: 0
     };
 
+    let tree = null;
     try {
         const wsHost = host.replace("http", "ws");
         console.log(`[enhancedSearch] Starting enhanced search...`);
@@ -311,16 +312,23 @@ export async function enhancedSearch(
         
         console.log(`[enhancedSearch] Attempting WebSocket connection...`);
         
-        // Add timeout to prevent hanging
+        // Add timeout to prevent hanging with better cleanup
+        let timeoutId = null;
         const treePromise = TreeM.treeFromWsWait(wsHost, treeId);
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => {
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
                 console.log(`[enhancedSearch] WebSocket connection timeout after 60 seconds!`);
                 reject(new Error(`Tree connection timeout after 60 seconds. Host: ${wsHost}, TreeID: ${treeId}`));
-            }, 60000)
-        );
+            }, 60000);
+        });
         
-        const tree = await Promise.race([treePromise, timeoutPromise]);
+        try {
+            tree = await Promise.race([treePromise, timeoutPromise]);
+            if (timeoutId) clearTimeout(timeoutId);
+        } catch (error) {
+            if (timeoutId) clearTimeout(timeoutId);
+            throw error;
+        }
         
         if (!tree) {
             throw new Error(`Failed to connect to tree. Host: ${wsHost}, TreeID: ${treeId}`);
@@ -381,6 +389,16 @@ export async function enhancedSearch(
             confidence: 0.0,
             processing_time_ms: Date.now() - startTime
         };
+    } finally {
+        // Clean up WebSocket connection
+        if (tree && typeof tree.close === 'function') {
+            try {
+                tree.close();
+                console.log(`[enhancedSearch] WebSocket connection closed for TreeID: ${treeId}`);
+            } catch (closeError) {
+                console.warn(`[enhancedSearch] Error closing WebSocket connection:`, closeError);
+            }
+        }
     }
 }
 
