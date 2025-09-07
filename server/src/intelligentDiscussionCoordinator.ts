@@ -6,7 +6,6 @@ import { enhancedSearch } from './beamSearchService';
 
 dotenv.config();
 
-// 智能讨论状态接口
 export interface DiscussionTurn {
     round: number;
     question: string;
@@ -34,7 +33,7 @@ export interface IntelligentDiscussionState {
 export interface AgentInfo {
     treeId: string;
     name: string;
-    context?: string;  // 从tree中提取的简要上下文
+    context?: string;  // Brief context extracted from tree
 }
 
 export interface DiscussionConfig {
@@ -45,8 +44,8 @@ export interface DiscussionConfig {
 }
 
 /**
- * 智能讨论协调器 - LLM驱动的讨论管理
- * 替代复杂的A2A协议直接通信，提供更稳定和智能的讨论体验
+ * Intelligent Discussion Coordinator - LLM-driven discussion management
+ * Replaces complex A2A protocol direct communication, providing more stable and intelligent discussion experience
  */
 export class IntelligentDiscussionCoordinator {
     private model: ChatOpenAI;
@@ -55,12 +54,12 @@ export class IntelligentDiscussionCoordinator {
     constructor() {
         this.model = new ChatOpenAI({
             model: "gpt-4o-mini",
-            temperature: 0.7,  // 稍高温度以获得更有创意的问题
+            temperature: 0.7,  // Slightly higher temperature for more creative questions
         });
     }
 
     /**
-     * 启动智能讨论
+     * Initiate intelligent discussion
      */
     async initiateDiscussion(config: DiscussionConfig): Promise<string> {
         const discussionId = uuidv4();
@@ -82,12 +81,12 @@ export class IntelligentDiscussionCoordinator {
         this.activeDiscussions.set(discussionId, discussion);
 
         try {
-            // 获取agents的上下文信息
+            // Get agent context information
             await this.initializeAgentContexts(discussion);
             
-            // 开始讨论流程
+            // Start discussion process
             discussion.status = 'active';
-            this.conductDiscussion(discussion); // 异步执行，不阻塞
+            this.conductDiscussion(discussion); // Execute asynchronously, non-blocking
             
             return discussionId;
             
@@ -100,14 +99,14 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 获取讨论状态
+     * Get discussion state
      */
     getDiscussionState(discussionId: string): IntelligentDiscussionState | null {
         return this.activeDiscussions.get(discussionId) || null;
     }
 
     /**
-     * 手动结束讨论
+     * Manually conclude discussion
      */
     async concludeDiscussion(discussionId: string): Promise<void> {
         const discussion = this.activeDiscussions.get(discussionId);
@@ -118,13 +117,13 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 初始化agent上下文信息
+     * Initialize agent context information
      */
     private async initializeAgentContexts(discussion: IntelligentDiscussionState): Promise<void> {
         console.log(`[IntelligentDiscussionCoordinator] Initializing agent contexts...`);
         
         try {
-            // 为每个agent获取简要上下文，用于后续问题生成
+            // Get brief context for each agent for subsequent question generation
             const contextPrompts = await Promise.allSettled([
                 this.getAgentContext(discussion.agentAInfo),
                 this.getAgentContext(discussion.agentBInfo)
@@ -140,12 +139,12 @@ export class IntelligentDiscussionCoordinator {
             console.log(`[IntelligentDiscussionCoordinator] Agent contexts initialized successfully`);
         } catch (error) {
             console.warn(`[IntelligentDiscussionCoordinator] Failed to initialize all agent contexts:`, error);
-            // 继续执行，即使没有上下文信息
+            // Continue execution even without context information
         }
     }
 
     /**
-     * 获取agent的上下文信息
+     * Get agent context information
      */
     private async getAgentContext(agentInfo: AgentInfo): Promise<string> {
         try {
@@ -157,7 +156,7 @@ export class IntelligentDiscussionCoordinator {
                 { max_nodes: 3, include_metadata: false }
             );
             
-            // 提取简要上下文
+            // Extract brief context
             return searchResult.answer.slice(0, 500) + '...';
         } catch (error) {
             console.warn(`[IntelligentDiscussionCoordinator] Failed to get context for ${agentInfo.name}:`, error);
@@ -166,7 +165,7 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 执行讨论流程 - 核心逻辑
+     * Execute discussion flow - core logic
      */
     private async conductDiscussion(discussion: IntelligentDiscussionState): Promise<void> {
         console.log(`[IntelligentDiscussionCoordinator] Starting discussion flow for ${discussion.discussionId}`);
@@ -176,11 +175,11 @@ export class IntelligentDiscussionCoordinator {
                 const currentRound = discussion.currentRound + 1;
                 console.log(`[IntelligentDiscussionCoordinator] Starting round ${currentRound}/${discussion.maxRounds}`);
 
-                // 1. 生成当前轮次的问题
+                // 1. Generate question for current round
                 const question = await this.generateQuestion(discussion, currentRound);
                 console.log(`[IntelligentDiscussionCoordinator] Generated question: "${question}"`);
 
-                // 2. 获取两个agent的回答
+                // 2. Get responses from both agents
                 const [responseA, responseB] = await Promise.allSettled([
                     this.getAgentResponse(discussion.agentAInfo, question),
                     this.getAgentResponse(discussion.agentBInfo, question)
@@ -193,10 +192,10 @@ export class IntelligentDiscussionCoordinator {
 
                 console.log(`[IntelligentDiscussionCoordinator] Received responses from both agents`);
 
-                // 3. 分析回答
+                // 3. Analyze responses
                 const analysis = await this.analyzeResponses(question, agentAResponse, agentBResponse, discussion);
                 
-                // 4. 记录这一轮
+                // 4. Record this round
                 const turn: DiscussionTurn = {
                     round: currentRound,
                     question,
@@ -211,11 +210,11 @@ export class IntelligentDiscussionCoordinator {
 
                 console.log(`[IntelligentDiscussionCoordinator] Completed round ${currentRound}, analysis: ${analysis.slice(0, 100)}...`);
 
-                // 5. 短暂暂停，避免API调用过于频繁
+                // 5. Brief pause to avoid excessive API calls
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
 
-            // 讨论结束
+            // Discussion ended
             await this.finalizeDiscussion(discussion);
 
         } catch (error) {
@@ -227,55 +226,55 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 生成讨论问题
+     * Generate discussion question
      */
     private async generateQuestion(discussion: IntelligentDiscussionState, round: number): Promise<string> {
         let promptTemplate: PromptTemplate;
 
         if (round === 1) {
-            // 第一轮：开场问题
+            // First round: opening question
             promptTemplate = PromptTemplate.fromTemplate(`
-你是一个学术讨论的主持人。现在要组织两个研究领域的专家进行对话。
+You are an academic discussion moderator organizing a dialogue between two research domain experts.
 
-讨论主题: {topic}
+Discussion Topic: {topic}
 
-参与者:
+Participants:
 - {agentAName}: {agentAContext}
 - {agentBName}: {agentBContext}
 
-请为第一轮讨论生成一个开放性的问题，这个问题应该:
-1. 与主题直接相关
-2. 能够引发两个不同研究视角的对话
-3. 避免过于技术性，保持可理解性
-4. 鼓励比较和对比不同方法
+Generate an open-ended question for the first round of discussion. The question should:
+1. Be directly related to the topic
+2. Provoke dialogue from two different research perspectives
+3. Avoid being overly technical while maintaining comprehensibility
+4. Encourage comparison and contrast of different approaches
 
-直接返回问题，不需要其他解释。
+Return only the question, no additional explanation needed.
             `);
         } else {
-            // 后续轮次：基于之前讨论生成深入问题
+            // Subsequent rounds: generate in-depth questions based on previous discussion
             const previousTurn = discussion.turns[discussion.turns.length - 1];
             
             promptTemplate = PromptTemplate.fromTemplate(`
-基于之前的讨论，继续深入探讨。
+Continue the in-depth exploration based on the previous discussion.
 
-讨论主题: {topic}
-当前是第 {round} 轮讨论。
+Discussion Topic: {topic}
+This is round {round} of the discussion.
 
-上一轮问题: {previousQuestion}
+Previous question: {previousQuestion}
 
-上一轮{agentAName}的回答: {previousResponseA}
+Previous response from {agentAName}: {previousResponseA}
 
-上一轮{agentBName}的回答: {previousResponseB}
+Previous response from {agentBName}: {previousResponseB}
 
-分析: {previousAnalysis}
+Analysis: {previousAnalysis}
 
-请生成下一个问题，这个问题应该:
-1. 基于上轮讨论的分歧点或共同点
-2. 进一步探索细节或实际应用
-3. 引导更深入的比较
-4. 保持讨论的连贯性
+Generate the next question that should:
+1. Build on points of divergence or convergence from the previous round
+2. Further explore details or practical applications
+3. Guide deeper comparisons
+4. Maintain discussion coherence
 
-直接返回问题，不需要其他解释。
+Return only the question, no additional explanation needed.
             `);
         }
 
@@ -303,7 +302,7 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 获取agent回答
+     * Get agent response
      */
     private async getAgentResponse(agentInfo: AgentInfo, question: string): Promise<string> {
         console.log(`[IntelligentDiscussionCoordinator] Getting response from ${agentInfo.name}...`);
@@ -345,7 +344,7 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 分析两个agent的回答
+     * Analyze responses from both agents
      */
     private async analyzeResponses(
         question: string, 
@@ -355,22 +354,22 @@ export class IntelligentDiscussionCoordinator {
     ): Promise<string> {
         
         const promptTemplate = PromptTemplate.fromTemplate(`
-作为学术讨论的主持人，请分析两个专家对同一问题的回答。
+As an academic discussion moderator, please analyze the responses from two experts to the same question.
 
-问题: {question}
+Question: {question}
 
-{agentAName}的回答:
+Response from {agentAName}:
 {responseA}
 
-{agentBName}的回答:  
+Response from {agentBName}:
 {responseB}
 
-请提供简洁的分析，包括:
-1. 主要观点的异同
-2. 两种方法/观点的互补性
-3. 可能的争议点或需要进一步探讨的方面
+Please provide a concise analysis including:
+1. Similarities and differences in main viewpoints
+2. Complementary aspects of the two methods/perspectives
+3. Potential points of controversy or areas requiring further exploration
 
-分析应该客观、简洁，为下一轮讨论做准备。限制在200字以内。
+The analysis should be objective, concise, and prepare for the next round of discussion. Limit to 200 words.
         `);
 
         const chain = promptTemplate.pipe(this.model);
@@ -378,7 +377,7 @@ export class IntelligentDiscussionCoordinator {
         const response = await chain.invoke({
             question,
             agentAName: discussion.agentAInfo.name,
-            responseA: responseA.slice(0, 1000), // 限制长度避免超过token限制
+            responseA: responseA.slice(0, 1000), // Limit length to avoid token limit
             agentBName: discussion.agentBInfo.name,
             responseB: responseB.slice(0, 1000)
         });
@@ -387,13 +386,13 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 结束讨论并生成总结
+     * Conclude discussion and generate summary
      */
     private async finalizeDiscussion(discussion: IntelligentDiscussionState): Promise<void> {
         console.log(`[IntelligentDiscussionCoordinator] Finalizing discussion ${discussion.discussionId}`);
         
         try {
-            // 生成讨论总结
+            // Generate discussion summary
             const summary = await this.generateSummary(discussion);
             discussion.summary = summary;
             
@@ -412,33 +411,33 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 生成讨论总结
+     * Generate discussion summary
      */
     private async generateSummary(discussion: IntelligentDiscussionState): Promise<string> {
         const turnsText = discussion.turns.map(turn => 
-            `轮次${turn.round}: ${turn.question}\n` +
+            `Round ${turn.round}: ${turn.question}\n` +
             `${discussion.agentAInfo.name}: ${turn.agentAResponse.slice(0, 300)}\n` +
             `${discussion.agentBInfo.name}: ${turn.agentBResponse.slice(0, 300)}\n` +
-            `分析: ${turn.coordinatorAnalysis}\n`
+            `Analysis: ${turn.coordinatorAnalysis}\n`
         ).join('\n---\n');
 
         const promptTemplate = PromptTemplate.fromTemplate(`
-请为以下学术讨论生成一个全面的总结报告。
+Please generate a comprehensive summary report for the following academic discussion.
 
-讨论主题: {topic}
-参与者: {agentAName} vs {agentBName}
-轮次: {roundCount}
+Discussion Topic: {topic}
+Participants: {agentAName} vs {agentBName}
+Rounds: {roundCount}
 
-讨论过程:
+Discussion Process:
 {turnsText}
 
-请生成结构化的总结报告，包括:
-1. 讨论概述
-2. 主要观点对比
-3. 关键发现和洞察
-4. 结论和建议
+Please generate a structured summary report including:
+1. Discussion overview
+2. Comparison of main viewpoints
+3. Key findings and insights
+4. Conclusions and recommendations
 
-报告应该客观、全面，适合学术交流。
+The report should be objective, comprehensive, and suitable for academic exchange.
         `);
 
         const chain = promptTemplate.pipe(this.model);
@@ -455,11 +454,11 @@ export class IntelligentDiscussionCoordinator {
     }
 
     /**
-     * 清理已完成的讨论
+     * Clean up completed discussions
      */
     public cleanup(): void {
         const now = Date.now();
-        const cleanup_threshold = 60 * 60 * 1000; // 1小时
+        const cleanup_threshold = 60 * 60 * 1000; // 1 hour
 
         for (const [id, discussion] of this.activeDiscussions.entries()) {
             if (discussion.status !== 'active' && discussion.endTime) {
