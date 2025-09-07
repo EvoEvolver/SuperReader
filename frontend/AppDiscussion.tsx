@@ -20,6 +20,8 @@ import {
     IconButton,
     Tooltip
 } from '@mui/material';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
     PlayArrow,
     Stop,
@@ -456,9 +458,43 @@ const AppDiscussion: React.FC = () => {
                             sx={{ pb: 1 }}
                         />
                         <CardContent sx={{ pt: 0 }}>
-                            <Typography variant="body1" component="div">
-                                <div dangerouslySetInnerHTML={{ __html: message.content }} />
-                            </Typography>
+                            <Box sx={{ 
+                                '& h1': { fontSize: '1.5rem', fontWeight: 'bold', mt: 2, mb: 1 },
+                                '& h2': { fontSize: '1.3rem', fontWeight: 'bold', mt: 2, mb: 1 },
+                                '& h3': { fontSize: '1.1rem', fontWeight: 'bold', mt: 1.5, mb: 1 },
+                                '& p': { mb: 1, lineHeight: 1.6 },
+                                '& ul, & ol': { pl: 3, mb: 1 },
+                                '& li': { mb: 0.5 },
+                                '& blockquote': { 
+                                    borderLeft: '4px solid #ddd', 
+                                    pl: 2, 
+                                    ml: 0, 
+                                    fontStyle: 'italic',
+                                    bgcolor: '#f9f9f9',
+                                    py: 1,
+                                    mb: 1
+                                },
+                                '& code': { 
+                                    bgcolor: '#f5f5f5', 
+                                    px: 0.5, 
+                                    py: 0.25, 
+                                    borderRadius: 1,
+                                    fontFamily: 'monospace'
+                                },
+                                '& pre': { 
+                                    bgcolor: '#f5f5f5', 
+                                    p: 2, 
+                                    borderRadius: 1, 
+                                    overflow: 'auto',
+                                    mb: 1
+                                },
+                                '& strong': { fontWeight: 'bold' },
+                                '& em': { fontStyle: 'italic' }
+                            }}>
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {message.content}
+                                </ReactMarkdown>
+                            </Box>
                         </CardContent>
                     </Card>
                 ))}
