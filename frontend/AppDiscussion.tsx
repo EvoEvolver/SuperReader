@@ -83,10 +83,10 @@ const AppDiscussion: React.FC = () => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Auto-scroll to bottom when new messages arrive
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [state.messages]);
+    // Auto-scroll to bottom when new messages arrive (disabled)
+    // useEffect(() => {
+    //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // }, [state.messages]);
 
     // Polling for discussion updates
     useEffect(() => {
