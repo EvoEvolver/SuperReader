@@ -41,6 +41,8 @@ import {
     validateTreeUrl,
     formatDiscussionMessage
 } from './discussion-api';
+import { extractTreeIdFromUrl } from './discussion-api';
+import { listAgents, AgentInfo } from './agent-api';
 
 interface AppDiscussionState {
     // Configuration
@@ -50,6 +52,8 @@ interface AppDiscussionState {
     agentBTreeUrl: string;
     agentAName: string;
     agentBName: string;
+    agentAIcon: string | null;
+    agentBIcon: string | null;
     
     // Discussion state
     discussionId: string | null;
@@ -71,6 +75,8 @@ const AppDiscussion: React.FC = () => {
         agentBTreeUrl: '',
         agentAName: 'Agent A',
         agentBName: 'Agent B',
+        agentAIcon: null,
+        agentBIcon: null,
         discussionId: null,
         discussionStatus: null,
         messages: [],
@@ -82,6 +88,21 @@ const AppDiscussion: React.FC = () => {
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Function to find agent icon by tree URL
+    const findAgentIcon = async (treeUrl: string): Promise<string | null> => {
+        try {
+            const treeId = extractTreeIdFromUrl(treeUrl);
+            if (!treeId) return null;
+            
+            const agents = await listAgents();
+            const agent = agents.find(a => a.treeId === treeId);
+            return agent?.iconUrl || null;
+        } catch (error) {
+            console.warn('Failed to fetch agent icon:', error);
+            return null;
+        }
+    };
 
     // Auto-scroll to bottom when new messages arrive (disabled)
     // useEffect(() => {
@@ -153,6 +174,18 @@ const AppDiscussion: React.FC = () => {
         setState(prev => ({ ...prev, isLoading: true, error: null }));
 
         try {
+            // Fetch agent icons before starting discussion
+            const [agentAIcon, agentBIcon] = await Promise.all([
+                findAgentIcon(state.agentATreeUrl),
+                findAgentIcon(state.agentBTreeUrl)
+            ]);
+
+            setState(prev => ({
+                ...prev,
+                agentAIcon,
+                agentBIcon
+            }));
+
             const config: DiscussionConfig = {
                 topic: state.topic,
                 maxRounds: state.maxRounds,
@@ -213,7 +246,9 @@ const AppDiscussion: React.FC = () => {
             messages: [],
             isConfiguring: true,
             isPolling: false,
-            error: null
+            error: null,
+            agentAIcon: null,
+            agentBIcon: null
         }));
     };
 
@@ -247,8 +282,16 @@ const AppDiscussion: React.FC = () => {
         } else if (agentName === 'Discussion Summary') {
             return <Avatar sx={{ bgcolor: 'success.main' }}>📋</Avatar>;
         } else if (agentName === state.agentAName) {
+            // Use Agent A's custom icon if available
+            if (state.agentAIcon) {
+                return <Avatar src={state.agentAIcon} sx={{ bgcolor: 'primary.main' }} />;
+            }
             return <Avatar sx={{ bgcolor: 'primary.main' }}><Person /></Avatar>;
         } else {
+            // Use Agent B's custom icon if available  
+            if (state.agentBIcon) {
+                return <Avatar src={state.agentBIcon} sx={{ bgcolor: 'secondary.main' }} />;
+            }
             return <Avatar sx={{ bgcolor: 'secondary.main' }}><SmartToy /></Avatar>;
         }
     };

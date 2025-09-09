@@ -19,13 +19,15 @@ import {
     DialogContent,
     DialogContentText,
     DialogTitle,
-    Tooltip
+    Tooltip,
+    Avatar
 } from '@mui/material';
 import {
     Delete as DeleteIcon,
     Refresh as RefreshIcon,
     ContentCopy as ContentCopyIcon,
-    ManageAccounts as ManageAccountsIcon
+    ManageAccounts as ManageAccountsIcon,
+    SmartToy
 } from '@mui/icons-material';
 import { 
     listAgents, 
@@ -242,19 +244,34 @@ const AppAgentManagement: React.FC = () => {
                                     <TableRow key={agent.treeId} hover>
                                         <TableCell>
                                             <Box sx={{ maxWidth: 500 }}>
-                                                <Box
-                                                    onClick={() => handleCopyUrl(agent.agentUrl)}
-                                                    sx={{ 
-                                                        display: 'flex', 
-                                                        alignItems: 'center',
-                                                        cursor: 'pointer',
-                                                        p: 1,
-                                                        borderRadius: 1,
-                                                        '&:hover': { 
-                                                            backgroundColor: 'action.hover' 
-                                                        }
-                                                    }}
-                                                >
+                                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                                    {/* Agent Icon */}
+                                                    {agent.iconUrl ? (
+                                                        <Avatar 
+                                                            src={agent.iconUrl} 
+                                                            sx={{ width: 40, height: 40, flexShrink: 0 }}
+                                                        />
+                                                    ) : (
+                                                        <Avatar sx={{ width: 40, height: 40, flexShrink: 0, bgcolor: 'primary.main' }}>
+                                                            <SmartToy />
+                                                        </Avatar>
+                                                    )}
+                                                    
+                                                    {/* URL and Title */}
+                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                        <Box
+                                                            onClick={() => handleCopyUrl(agent.agentUrl)}
+                                                            sx={{ 
+                                                                display: 'flex', 
+                                                                alignItems: 'center',
+                                                                cursor: 'pointer',
+                                                                p: 1,
+                                                                borderRadius: 1,
+                                                                '&:hover': { 
+                                                                    backgroundColor: 'action.hover' 
+                                                                }
+                                                            }}
+                                                        >
                                                     <Typography
                                                         variant="body2"
                                                         sx={{
@@ -271,12 +288,14 @@ const AppAgentManagement: React.FC = () => {
                                                         <ContentCopyIcon sx={{ ml: 1, fontSize: 16, color: 'action.active' }} />
                                                     </Tooltip>
                                                 </Box>
-                                                <Typography
-                                                    variant="subtitle2"
-                                                    sx={{ mt: 0.5, fontWeight: 'medium', pl: 1 }}
-                                                >
-                                                    {agent.paperTitle}
-                                                </Typography>
+                                                        <Typography
+                                                            variant="subtitle2"
+                                                            sx={{ mt: 0.5, fontWeight: 'medium', pl: 1 }}
+                                                        >
+                                                            {agent.paperTitle}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
                                             </Box>
                                         </TableCell>
                                         <TableCell>

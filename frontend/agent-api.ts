@@ -44,6 +44,7 @@ export interface AgentInfo {
     status: string;
     createdAt: string;
     lastActive: string;
+    iconUrl?: string;
     config: {
         host: string;
         maxNodes: number;
@@ -81,10 +82,11 @@ export interface AgentCreationResult {
     paperTitle: string;
     status: 'created' | 'existing';
     message: string;
+    iconUrl?: string;
 }
 
 // Create a new agent
-export async function createAgent(treeUrl: string, paperTitle: string, maxNodes: number = 15): Promise<AgentCreationResult> {
+export async function createAgent(treeUrl: string, paperTitle: string, maxNodes: number = 15, iconUrl?: string): Promise<AgentCreationResult> {
     const treeId = extractTreeIdFromUrl(treeUrl);
     if (!treeId) {
         throw new Error('Invalid tree URL - could not extract tree ID');
@@ -102,7 +104,8 @@ export async function createAgent(treeUrl: string, paperTitle: string, maxNodes:
         body: JSON.stringify({
             treeId: treeId,
             paperTitle: paperTitle || `Agent for ${treeId}`,
-            maxNodes: maxNodes
+            maxNodes: maxNodes,
+            iconUrl: iconUrl
         }),
     });
 
@@ -118,7 +121,8 @@ export async function createAgent(treeUrl: string, paperTitle: string, maxNodes:
         agentUrl: normalizeAgentUrl(result.agent_url),
         paperTitle: result.paper_title || paperTitle,
         status: result.status,
-        message: result.message
+        message: result.message,
+        iconUrl: iconUrl
     };
 }
 
@@ -146,6 +150,7 @@ export async function getAgentInfo(treeId: string): Promise<AgentInfo> {
         status: data.status,
         createdAt: data.created_at,
         lastActive: data.last_active,
+        iconUrl: data.icon_url,
         config: {
             host: data.config.host,
             maxNodes: data.config.max_nodes
@@ -223,6 +228,7 @@ export async function listAgents(): Promise<AgentInfo[]> {
         status: agent.status,
         createdAt: agent.created_at,
         lastActive: agent.last_active,
+        iconUrl: agent.icon_url,
         config: {
             host: agent.config.host,
             maxNodes: agent.config.max_nodes

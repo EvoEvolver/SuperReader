@@ -605,7 +605,7 @@ app.get('/a2a/discover', async (_req, res) => {
  */
 app.post('/paper-agents/register', async (req: Request, res: Response) => {
     try {
-        const { treeId, paperTitle, host, maxNodes } = req.body;
+        const { treeId, paperTitle, host, maxNodes, iconUrl } = req.body;
         
         if (!treeId) {
             return res.status(400).json({
@@ -634,7 +634,8 @@ app.post('/paper-agents/register', async (req: Request, res: Response) => {
         const agent = await agentRegistry.registerPaperAgent(treeId, {
             paperTitle,
             host,
-            maxNodes
+            maxNodes,
+            iconUrl
         });
 
         res.json({

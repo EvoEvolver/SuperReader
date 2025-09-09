@@ -166,6 +166,7 @@ export class AgentRegistry {
         created_at: string;
         last_active: string;
         agent_card: any;
+        icon_url?: string;
         config: {
             host: string;
             max_nodes: number;
@@ -181,6 +182,7 @@ export class AgentRegistry {
                 created_at: entry.createdAt.toISOString(),
                 last_active: entry.lastActive.toISOString(),
                 agent_card: entry.agentCard,
+                icon_url: entry.config.iconUrl,
                 config: {
                     host: entry.config.host || 'https://treer.ai',
                     max_nodes: entry.config.maxNodes || 15

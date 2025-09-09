@@ -16,6 +16,8 @@ export interface PaperAgentConfig {
     agentPort: number;
     /** Maximum number of nodes to search (default: 10) */
     maxNodes?: number;
+    /** URL for the agent's custom icon/avatar */
+    iconUrl?: string;
 }
 
 /**
@@ -29,6 +31,7 @@ export interface PaperAgentMetadata {
     specialization: 'single_paper_discussion';
     created_at: string;
     host: string;
+    icon_url?: string;
 }
 
 /**

@@ -53,6 +53,7 @@ interface AgentGeneratorState {
     // Creation form
     treeUrl: string;
     paperTitle: string;
+    iconUrl: string;
     isCreating: boolean;
     
     // Current agent
@@ -76,6 +77,7 @@ const AppAgentGenerator: React.FC = () => {
     const [state, setState] = useState<AgentGeneratorState>({
         treeUrl: '',
         paperTitle: '',
+        iconUrl: '',
         isCreating: false,
         currentAgent: null,
         testQuestion: '',
@@ -131,7 +133,7 @@ const AppAgentGenerator: React.FC = () => {
         setState(prev => ({ ...prev, isCreating: true, error: null, success: null }));
 
         try {
-            const createResult = await createAgent(state.treeUrl, state.paperTitle);
+            const createResult = await createAgent(state.treeUrl, state.paperTitle, 15, state.iconUrl);
             
             // Get full agent info
             const agentInfo = await getAgentInfo(createResult.treeId);
@@ -147,7 +149,8 @@ const AppAgentGenerator: React.FC = () => {
                 isCreating: false,
                 success: successMessage,
                 treeUrl: '',
-                paperTitle: ''
+                paperTitle: '',
+                iconUrl: ''
             }));
 
             // Reload agents list
@@ -281,7 +284,16 @@ const AppAgentGenerator: React.FC = () => {
                             value={state.paperTitle}
                             onChange={(e) => setState(prev => ({ ...prev, paperTitle: e.target.value }))}
                             placeholder="Enter a descriptive title for this agent"
+                            sx={{ mb: 2 }}
+                        />
+                        <TextField
+                            fullWidth
+                            label="Icon URL (optional)"
+                            value={state.iconUrl}
+                            onChange={(e) => setState(prev => ({ ...prev, iconUrl: e.target.value }))}
+                            placeholder="https://example.com/icon.png"
                             sx={{ mb: 3 }}
+                            helperText="URL to an image that will be used as the agent's avatar in discussions"
                         />
 
                         <Button
