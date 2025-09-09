@@ -1,6 +1,34 @@
 import { worker_endpoint } from "./config";
 import { extractTreeIdFromUrl, validateTreeUrl } from "./discussion-api";
 
+// Utility function to replace agent URL domain with current browser domain
+function normalizeAgentUrl(agentUrl: string): string {
+    try {
+        const url = new URL(agentUrl);
+        const currentOrigin = window.location.origin;
+        
+        // If the agent URL is localhost:8081, replace with current browser origin
+        if (url.hostname === 'localhost' && url.port === '8081') {
+            return agentUrl.replace('http://localhost:8081', currentOrigin);
+        }
+        
+        // If current browser is localhost, keep the original URL
+        if (window.location.hostname === 'localhost') {
+            return agentUrl;
+        }
+        
+        // For production: replace any localhost references with current origin
+        if (url.hostname === 'localhost') {
+            return agentUrl.replace(url.origin, currentOrigin);
+        }
+        
+        return agentUrl;
+    } catch (error) {
+        console.warn('Failed to normalize agent URL:', agentUrl, error);
+        return agentUrl;
+    }
+}
+
 // Agent information interface
 export interface AgentInfo {
     treeId: string;
@@ -91,7 +119,7 @@ export async function getAgentInfo(treeId: string): Promise<AgentInfo> {
     return {
         treeId: data.tree_id,
         paperTitle: data.paper_title,
-        agentUrl: data.agent_url,
+        agentUrl: normalizeAgentUrl(data.agent_url),
         agentCard: data.agent_card,
         status: data.status,
         createdAt: data.created_at,
@@ -168,7 +196,7 @@ export async function listAgents(): Promise<AgentInfo[]> {
     return data.agents.map((agent: any) => ({
         treeId: agent.tree_id,
         paperTitle: agent.paper_title,
-        agentUrl: agent.agent_url,
+        agentUrl: normalizeAgentUrl(agent.agent_url),
         agentCard: agent.agent_card,
         status: agent.status,
         createdAt: agent.created_at,
