@@ -11,20 +11,20 @@ function normalizeAgentUrl(agentUrl: string | undefined): string {
 
     try {
         const url = new URL(agentUrl);
-        const currentOrigin = window.location.origin;
+        const currentHostname = window.location.hostname;
         
-        // If the agent URL is localhost:8081, replace with current browser origin
-        if (url.hostname === 'localhost' && url.port === '8081') {
-            return agentUrl.replace('http://localhost:8081', currentOrigin);
-        }
-        
-        // If current browser is localhost, keep the original URL
-        if (window.location.hostname === 'localhost') {
+        // If current browser is localhost, ensure the URL uses localhost:8081 (backend port)
+        if (currentHostname === 'localhost') {
+            if (url.hostname === 'localhost') {
+                // Replace any localhost port with 8081 (backend port)
+                return agentUrl.replace(/localhost:\d+/, 'localhost:8081');
+            }
             return agentUrl;
         }
         
         // For production: replace any localhost references with current origin
         if (url.hostname === 'localhost') {
+            const currentOrigin = window.location.origin;
             return agentUrl.replace(url.origin, currentOrigin);
         }
         

@@ -177,7 +177,7 @@ app.get('/supported_formats', (_req, res) => {
 
 app.use(cors({
     origin: ['http://localhost:5173', "http://localhost:7777", "http://localhost:39999", "https://treer.ai"], // Allow your frontend origin
-    methods: ['GET', 'POST'], // Allowed methods
+    methods: ['GET', 'POST', 'DELETE'], // Allowed methods
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true // Enable credentials (cookies, authorization headers, etc)
 }));
