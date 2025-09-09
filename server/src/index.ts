@@ -16,6 +16,7 @@ import { SearchAgentExecutor } from "./searchAgentExecutor";
 import { AgentRegistry } from "./agentRegistry";
 import { DiscussionCoordinator } from "./discussionCoordinator";
 import { IntelligentDiscussionCoordinator, DiscussionConfig } from "./intelligentDiscussionCoordinator";
+import { SimpleAgentInterface } from "./simpleAgentInterface";
 import {
     AgentCard,
     TaskStore,
@@ -153,6 +154,9 @@ app.get('/searcher', (_req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, "index.html"));
 });
 app.get('/discuss', (_req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, "index.html"));
+});
+app.get('/agent-generator', (_req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, "index.html"));
 });
 
@@ -759,6 +763,67 @@ app.delete('/paper-agents/:treeId', async (req: Request, res: Response) => {
         console.error('[API] Error removing paper agent:', error);
         res.status(500).json({
             error: 'Failed to remove paper agent',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Test a paper agent with a question
+ * POST /paper-agents/:treeId/test
+ */
+app.post('/paper-agents/:treeId/test', async (req: Request, res: Response) => {
+    try {
+        const { treeId } = req.params;
+        const { question } = req.body;
+        
+        if (!question) {
+            return res.status(400).json({
+                error: 'Missing required parameter: question'
+            });
+        }
+
+        const agentInfo = agentRegistry.getAgentInfo(treeId);
+        
+        if (!agentInfo) {
+            return res.status(404).json({
+                error: 'Paper agent not found',
+                tree_id: treeId
+            });
+        }
+
+        console.log(`[API] Testing paper agent ${treeId} with question: "${question}"`);
+
+        // Create a SimpleAgentInterface instance for testing
+        const testAgent = new SimpleAgentInterface(
+            treeId, 
+            agentInfo.config.paperTitle || 'Test Agent',
+            agentInfo.config.host || 'https://treer.ai'
+        );
+
+        // Ask the question and get response
+        const startTime = Date.now();
+        const response = await testAgent.ask(question, {
+            max_nodes: agentInfo.config.maxNodes || 10,
+            include_metadata: false
+        });
+        const duration = Date.now() - startTime;
+
+        console.log(`[API] Agent test completed in ${duration}ms`);
+
+        res.json({
+            tree_id: treeId,
+            question: question,
+            response: response,
+            duration_ms: duration,
+            timestamp: new Date().toISOString(),
+            agent_name: agentInfo.config.paperTitle || 'Test Agent'
+        });
+
+    } catch (error) {
+        console.error('[API] Error testing paper agent:', error);
+        res.status(500).json({
+            error: 'Failed to test paper agent',
             details: error.message
         });
     }

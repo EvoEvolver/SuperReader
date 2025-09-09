@@ -51,6 +51,18 @@ export class PaperAgent {
 
         const discussionSkills: PaperDiscussionSkill[] = [
             {
+                id: 'ask_question',
+                name: 'Ask Question',
+                description: `Ask any question about the content, concepts, or details in "${paperTitle}"`,
+                examples: [
+                    'What is this paper about?',
+                    'Can you explain the main concepts?',
+                    'What are the key contributions of this research?',
+                    'How does this work relate to the field?',
+                    'What problem does this paper solve?'
+                ]
+            },
+            {
                 id: 'discuss_methodology',
                 name: 'Discuss Methodology',
                 description: `Discuss the research methodology and approach used in "${paperTitle}"`,

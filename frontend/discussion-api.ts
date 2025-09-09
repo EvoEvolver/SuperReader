@@ -44,7 +44,7 @@ export interface DiscussionHistory {
 }
 
 // Register a paper agent and return its ID
-export async function registerAgent(treeUrl: string, paperTitle: string, maxNodes: number = 10): Promise<string> {
+export async function registerAgent(treeUrl: string, paperTitle: string, maxNodes: number = 15): Promise<string> {
     const treeId = extractTreeIdFromUrl(treeUrl);
     if (!treeId) {
         throw new Error('Invalid tree URL - could not extract tree ID');

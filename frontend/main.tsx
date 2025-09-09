@@ -6,6 +6,7 @@ import { AppWait } from './AppWait';
 import AppUpload from "./AppUpload";
 import AppSearcher from "./AppSearcher";
 import AppDiscussion from "./AppDiscussion";
+import AppAgentGenerator from "./AppAgentGenerator";
 
 const rootElement = document.getElementById('root');
 
@@ -17,6 +18,7 @@ if (rootElement) {
                 <Route path="/upload" element={<AppUpload />} />
                 <Route path="/searcher" element={<AppSearcher />} />
                 <Route path="/discuss" element={<AppDiscussion />} />
+                <Route path="/agent-generator" element={<AppAgentGenerator />} />
             </Routes>
         </BrowserRouter>
     );
