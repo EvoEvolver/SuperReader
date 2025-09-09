@@ -19,13 +19,12 @@ import {
     DialogContent,
     DialogContentText,
     DialogTitle,
-    Link,
     Tooltip
 } from '@mui/material';
 import {
     Delete as DeleteIcon,
     Refresh as RefreshIcon,
-    OpenInNew as OpenInNewIcon,
+    ContentCopy as ContentCopyIcon,
     ManageAccounts as ManageAccountsIcon
 } from '@mui/icons-material';
 import { 
@@ -149,6 +148,25 @@ const AppAgentManagement: React.FC = () => {
         setState(prev => ({ ...prev, error: null, success: null }));
     };
 
+    const handleCopyUrl = async (agentUrl: string) => {
+        try {
+            await navigator.clipboard.writeText(agentUrl);
+            setState(prev => ({ 
+                ...prev, 
+                success: 'Agent URL copied to clipboard!' 
+            }));
+            // Clear success message after 3 seconds
+            setTimeout(() => {
+                setState(prev => ({ ...prev, success: null }));
+            }, 3000);
+        } catch (error) {
+            setState(prev => ({ 
+                ...prev, 
+                error: 'Failed to copy URL to clipboard' 
+            }));
+        }
+    };
+
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleString();
     };
@@ -224,15 +242,17 @@ const AppAgentManagement: React.FC = () => {
                                     <TableRow key={agent.treeId} hover>
                                         <TableCell>
                                             <Box sx={{ maxWidth: 500 }}>
-                                                <Link
-                                                    href={agent.agentUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
+                                                <Box
+                                                    onClick={() => handleCopyUrl(agent.agentUrl)}
                                                     sx={{ 
                                                         display: 'flex', 
                                                         alignItems: 'center',
-                                                        textDecoration: 'none',
-                                                        '&:hover': { textDecoration: 'underline' }
+                                                        cursor: 'pointer',
+                                                        p: 1,
+                                                        borderRadius: 1,
+                                                        '&:hover': { 
+                                                            backgroundColor: 'action.hover' 
+                                                        }
                                                     }}
                                                 >
                                                     <Typography
@@ -241,16 +261,19 @@ const AppAgentManagement: React.FC = () => {
                                                             fontFamily: 'monospace',
                                                             fontSize: '0.875rem',
                                                             color: 'primary.main',
-                                                            wordBreak: 'break-all'
+                                                            wordBreak: 'break-all',
+                                                            flex: 1
                                                         }}
                                                     >
                                                         {agent.agentUrl}
                                                     </Typography>
-                                                    <OpenInNewIcon sx={{ ml: 1, fontSize: 16 }} />
-                                                </Link>
+                                                    <Tooltip title="Click to copy URL">
+                                                        <ContentCopyIcon sx={{ ml: 1, fontSize: 16, color: 'action.active' }} />
+                                                    </Tooltip>
+                                                </Box>
                                                 <Typography
                                                     variant="subtitle2"
-                                                    sx={{ mt: 0.5, fontWeight: 'medium' }}
+                                                    sx={{ mt: 0.5, fontWeight: 'medium', pl: 1 }}
                                                 >
                                                     {agent.paperTitle}
                                                 </Typography>
