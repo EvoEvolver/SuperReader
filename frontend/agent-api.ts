@@ -2,7 +2,13 @@ import { worker_endpoint } from "./config";
 import { extractTreeIdFromUrl, validateTreeUrl } from "./discussion-api";
 
 // Utility function to replace agent URL domain with current browser domain
-function normalizeAgentUrl(agentUrl: string): string {
+function normalizeAgentUrl(agentUrl: string | undefined): string {
+    // Handle undefined or empty URL
+    if (!agentUrl || agentUrl.trim() === '') {
+        console.warn('Agent URL is undefined or empty');
+        return '';
+    }
+
     try {
         const url = new URL(agentUrl);
         const currentOrigin = window.location.origin;
@@ -25,7 +31,7 @@ function normalizeAgentUrl(agentUrl: string): string {
         return agentUrl;
     } catch (error) {
         console.warn('Failed to normalize agent URL:', agentUrl, error);
-        return agentUrl;
+        return agentUrl || '';
     }
 }
 
@@ -68,8 +74,17 @@ export interface AgentTestResponse {
     agentName: string;
 }
 
+// Agent creation result interface
+export interface AgentCreationResult {
+    treeId: string;
+    agentUrl: string;
+    paperTitle: string;
+    status: 'created' | 'existing';
+    message: string;
+}
+
 // Create a new agent
-export async function createAgent(treeUrl: string, paperTitle: string, maxNodes: number = 15): Promise<string> {
+export async function createAgent(treeUrl: string, paperTitle: string, maxNodes: number = 15): Promise<AgentCreationResult> {
     const treeId = extractTreeIdFromUrl(treeUrl);
     if (!treeId) {
         throw new Error('Invalid tree URL - could not extract tree ID');
@@ -97,7 +112,14 @@ export async function createAgent(treeUrl: string, paperTitle: string, maxNodes:
     }
 
     const result = await response.json();
-    return treeId; // Return the tree ID for use as agent identifier
+    
+    return {
+        treeId: treeId,
+        agentUrl: normalizeAgentUrl(result.agent_url),
+        paperTitle: result.paper_title || paperTitle,
+        status: result.status,
+        message: result.message
+    };
 }
 
 // Get agent information

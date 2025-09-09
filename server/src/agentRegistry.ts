@@ -156,24 +156,36 @@ export class AgentRegistry {
     }
 
     /**
-     * List all active agents
+     * List all active agents with snake_case keys for API consistency
      */
     listActiveAgents(): Array<{
-        treeId: string;
-        paperTitle: string;
-        agentUrl: string;
+        tree_id: string;
+        paper_title: string;
+        agent_url: string;
         status: string;
-        createdAt: Date;
-        lastActive: Date;
+        created_at: string;
+        last_active: string;
+        agent_card: any;
+        config: {
+            host: string;
+            max_nodes: number;
+        };
     }> {
-        return Array.from(this.agents.entries()).map(([treeId, entry]) => ({
-            treeId,
-            paperTitle: entry.config.paperTitle || 'Unknown',
-            agentUrl: entry.agent?.getAgentUrl() || '',
-            status: entry.status,
-            createdAt: entry.createdAt,
-            lastActive: entry.lastActive
-        }));
+        return Array.from(this.agents.entries())
+            .filter(([, entry]) => entry.status === 'active')
+            .map(([treeId, entry]) => ({
+                tree_id: treeId,
+                paper_title: entry.config.paperTitle || 'Unknown',
+                agent_url: entry.agent?.getAgentUrl() || '',
+                status: entry.status,
+                created_at: entry.createdAt.toISOString(),
+                last_active: entry.lastActive.toISOString(),
+                agent_card: entry.agentCard,
+                config: {
+                    host: entry.config.host || 'https://treer.ai',
+                    max_nodes: entry.config.maxNodes || 15
+                }
+            }));
     }
 
     /**

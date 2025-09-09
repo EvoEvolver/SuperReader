@@ -159,6 +159,9 @@ app.get('/discuss', (_req, res) => {
 app.get('/agent-generator', (_req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, "index.html"));
 });
+app.get('/agent-management', (_req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, "index.html"));
+});
 
 // Get supported document formats
 app.get('/supported_formats', (_req, res) => {
@@ -615,10 +618,14 @@ app.post('/paper-agents/register', async (req: Request, res: Response) => {
         // Check if agent already exists
         const existingAgent = agentRegistry.getAgent(treeId);
         if (existingAgent) {
+            const existingAgentInfo = agentRegistry.getAgentInfo(treeId);
             return res.json({
-                message: 'Agent already exists',
+                message: 'Agent already exists for this paper',
                 agent_url: existingAgent.getAgentUrl(),
                 agent_card: existingAgent.getAgentCard(),
+                tree_id: treeId,
+                paper_title: existingAgentInfo?.config.paperTitle || 'Unknown',
+                created_at: existingAgentInfo?.createdAt.toISOString(),
                 status: 'existing'
             });
         }

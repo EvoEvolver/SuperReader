@@ -44,7 +44,8 @@ import {
     deleteAgent,
     generateAgentUrl,
     AgentInfo,
-    AgentTestResponse
+    AgentTestResponse,
+    AgentCreationResult
 } from './agent-api';
 import { validateTreeUrl } from './discussion-api';
 
@@ -130,16 +131,21 @@ const AppAgentGenerator: React.FC = () => {
         setState(prev => ({ ...prev, isCreating: true, error: null, success: null }));
 
         try {
-            const treeId = await createAgent(state.treeUrl, state.paperTitle);
+            const createResult = await createAgent(state.treeUrl, state.paperTitle);
             
             // Get full agent info
-            const agentInfo = await getAgentInfo(treeId);
+            const agentInfo = await getAgentInfo(createResult.treeId);
             
+            // Generate appropriate success message
+            const successMessage = createResult.status === 'existing' 
+                ? `Agent already exists for this paper: ${agentInfo.agentUrl}`
+                : `Agent created successfully! Agent URL: ${agentInfo.agentUrl}`;
+
             setState(prev => ({
                 ...prev,
                 currentAgent: agentInfo,
                 isCreating: false,
-                success: `Agent created successfully! Agent URL: ${agentInfo.agentUrl}`,
+                success: successMessage,
                 treeUrl: '',
                 paperTitle: ''
             }));
