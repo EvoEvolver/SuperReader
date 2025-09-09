@@ -114,11 +114,16 @@ export class PaperAgent {
             }
         ];
 
+        // Generate agent URL based on environment - use unified routing for both dev and prod
+        const isProduction = process.env.NODE_ENV === 'production';
+        const baseUrl = process.env.BASE_URL || (isProduction ? '' : 'http://localhost:8081');
+        const agentUrl = `${baseUrl}/agents/${this.config.treeId}`;
+
         return {
             name: `Paper Research Agent - ${paperTitle}`,
             description: `Specialized agent representing the research paper: "${paperTitle}". This agent has deep knowledge of the paper's content and can engage in detailed discussions about its methodology, findings, and implications.`,
             version: '1.0.0',
-            url: `http://localhost:${this.config.agentPort}/`,
+            url: agentUrl,
             protocolVersion: '0.3.0',
             capabilities: {
                 streaming: false,
@@ -274,23 +279,11 @@ export class PaperAgent {
                 );
             }
 
-            // Start HTTP server
-            return new Promise((resolve, reject) => {
-                this.server = this.app.listen(this.config.agentPort, () => {
-                    console.log(`[PaperAgent] "${this.config.paperTitle}" started at http://localhost:${this.config.agentPort}`);
-                    console.log(`[PaperAgent] Tree ID: ${this.config.treeId}`);
-                    console.log(`[PaperAgent] Agent Card: http://localhost:${this.config.agentPort}/.well-known/agent.json`);
-                    resolve();
-                });
-                
-                this.server.on('error', (error: any) => {
-                    if (error.code === 'EADDRINUSE') {
-                        reject(new Error(`Port ${this.config.agentPort} is already in use`));
-                    } else {
-                        reject(error);
-                    }
-                });
-            });
+            // Use main app routing for both development and production
+            console.log(`[PaperAgent] "${this.config.paperTitle}" initialized for proxy routing`);
+            console.log(`[PaperAgent] Tree ID: ${this.config.treeId}`);
+            console.log(`[PaperAgent] Agent URL: ${this.agentCard.url}`);
+            return Promise.resolve();
         } catch (error) {
             console.error(`[PaperAgent] Failed to initialize agent for tree ${this.config.treeId}:`, error);
             throw error;
@@ -373,5 +366,12 @@ export class PaperAgent {
      */
     isRunning(): boolean {
         return !!this.server && this.server.listening;
+    }
+
+    /**
+     * Get the agent's internal express app for routing
+     */
+    getExpressApp() {
+        return this.app;
     }
 }

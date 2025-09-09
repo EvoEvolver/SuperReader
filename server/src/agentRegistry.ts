@@ -38,9 +38,8 @@ export class AgentRegistry {
         }
 
         try {
-            // Find available port
-            const agentPort = await this.findAvailablePort();
-            console.log(`[AgentRegistry] Assigned port ${agentPort} to agent ${treeId}`);
+            // No individual ports needed - using unified routing
+            const agentPort = 0;
 
             // Create full configuration
             const fullConfig: PaperAgentConfig = {
@@ -49,7 +48,7 @@ export class AgentRegistry {
                 paperTitle: config.paperTitle,
                 host: config.host || 'https://treer.ai',
                 agentPort,
-                maxNodes: config.maxNodes || 10,
+                maxNodes: config.maxNodes || 15, // Updated default value
                 ...config
             };
 
@@ -68,7 +67,7 @@ export class AgentRegistry {
 
             // Store in registry
             this.agents.set(treeId, entry);
-            this.usedPorts.add(agentPort);
+            // No port management needed with unified routing
 
             // Initialize the agent
             await agent.initialize();
@@ -111,15 +110,12 @@ export class AgentRegistry {
         }
 
         try {
-            // Stop the agent
+            // Stop the agent (no HTTP server to stop with unified routing)
             if (entry.agent && entry.agent.isRunning()) {
                 await entry.agent.stop();
             }
 
-            // Free the port
-            if (entry.config.agentPort) {
-                this.usedPorts.delete(entry.config.agentPort);
-            }
+            // No port cleanup needed with unified routing
 
             // Remove from registry
             this.agents.delete(treeId);
