@@ -65,14 +65,6 @@ const imageEditService = new ImageEditService();
 app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb'}));
 
-app.listen(port, () => {
-    console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
-    console.log(`[A2A] A2A protocol support initialized successfully`);
-});
-
-
-app.use(express.json());
-
 // A2A Protocol: Agent Card definition
 const superReaderAgentCard: AgentCard = {
     name: "SuperReader Knowledge Search Agent",
@@ -1412,6 +1404,14 @@ app.post('/discussions/:discussionId/conclude', async (req: Request, res: Respon
 });
 
 // =====================================
+// Start the server after all routes and middleware are configured
+// ================================================================
+
+app.listen(port, '0.0.0.0', () => {
+    console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
+    console.log(`[A2A] A2A protocol support initialized successfully`);
+});
+
 // Graceful Shutdown Handler
 // =====================================
 
