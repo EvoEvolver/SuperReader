@@ -52,25 +52,36 @@ export const config = {
  * Validate required configuration
  */
 export function validateConfig(): void {
-    const required = [
-        { key: 'OPENAI_API_KEY', value: config.openai.apiKey },
-        { key: 'MINIO_ACCESS_KEY', value: config.minio.accessKey },
-        { key: 'MINIO_SECRET_KEY', value: config.minio.secretKey },
-    ];
+    const warnings = [];
+    const errors = [];
 
-    const missing = required.filter(item => !item.value);
+    // Check critical environment variables
+    if (!config.openai.apiKey) {
+        warnings.push('OPENAI_API_KEY is not set - OpenAI features will not work');
+    }
     
-    if (missing.length > 0) {
-        console.error('❌ Missing required environment variables:');
-        missing.forEach(item => console.error(`   - ${item.key}`));
-        console.error('Please check your .env file and ensure all required variables are set.');
+    if (!config.minio.accessKey || !config.minio.secretKey) {
+        warnings.push('MinIO credentials not set - file upload features may not work');
+    }
+
+    // Only exit for truly critical errors that prevent startup
+    if (errors.length > 0) {
+        console.error('❌ Critical configuration errors:');
+        errors.forEach(error => console.error(`   - ${error}`));
         process.exit(1);
+    }
+
+    // Just warn for missing optional features
+    if (warnings.length > 0) {
+        console.warn('⚠️  Configuration warnings:');
+        warnings.forEach(warning => console.warn(`   - ${warning}`));
     }
 
     console.log('✅ Configuration validated successfully');
     console.log(`📊 Using OpenAI model: ${config.openai.chatModel} (temp: ${config.openai.temperature})`);
     console.log(`🖼️  Using image model: ${config.openai.imageModel}`);
     console.log(`🎨 Reference image: ${config.imageEdit.referenceImageUrl}`);
+    console.log(`🗂️  MinIO endpoint: ${config.minio.endpoint}`);
 }
 
 /**
@@ -88,12 +99,36 @@ export function getChatModelConfig() {
  * Get MinIO configuration
  */
 export function getMinioConfig() {
-    return {
-        endPoint: config.minio.endpoint.replace(/^https?:\/\//, ''),
-        useSSL: config.minio.endpoint.startsWith('https'),
-        accessKey: config.minio.accessKey,
-        secretKey: config.minio.secretKey,
-    };
+    const endpoint = config.minio.endpoint;
+    
+    // Handle both URL format and plain hostname:port format
+    try {
+        // Try to parse as URL first
+        const url = new URL(endpoint.startsWith('http') ? endpoint : `https://${endpoint}`);
+        return {
+            endPoint: url.hostname,
+            port: url.port ? parseInt(url.port) : (url.protocol === 'https:' ? 443 : 80),
+            useSSL: url.protocol === 'https:',
+            accessKey: config.minio.accessKey,
+            secretKey: config.minio.secretKey,
+        };
+    } catch (error) {
+        // Fallback: parse manually for formats like "hostname:port"
+        const parts = endpoint.split(':');
+        const hostname = parts[0];
+        const port = parts[1] ? parseInt(parts[1]) : 443;
+        const useSSL = port === 443 || endpoint.startsWith('https');
+        
+        console.log(`[Config] MinIO endpoint parsed: ${hostname}:${port} (SSL: ${useSSL})`);
+        
+        return {
+            endPoint: hostname,
+            port: port,
+            useSSL: useSSL,
+            accessKey: config.minio.accessKey,
+            secretKey: config.minio.secretKey,
+        };
+    }
 }
 
 export default config;

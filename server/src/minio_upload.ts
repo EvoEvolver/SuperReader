@@ -8,6 +8,7 @@ const minioConfig = getMinioConfig();
 
 export const minioClient = new Client({
   endPoint: minioConfig.endPoint,
+  port: minioConfig.port,
   accessKey: minioConfig.accessKey,
   secretKey: minioConfig.secretKey,
   useSSL: minioConfig.useSSL,
