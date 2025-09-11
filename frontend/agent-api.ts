@@ -266,3 +266,39 @@ export async function agentExists(treeId: string): Promise<boolean> {
         return false;
     }
 }
+
+// Icon generation interfaces
+export interface IconGenerationRequest {
+    treeUrl: string;
+    paperTitle?: string;
+}
+
+export interface IconGenerationResult {
+    success: boolean;
+    iconUrl?: string;
+    summary?: string;
+    durationMs?: number;
+    operationId?: string;
+    error?: string;
+}
+
+// Generate agent icon automatically
+export async function generateAgentIcon(treeUrl: string, paperTitle?: string): Promise<IconGenerationResult> {
+    const response = await fetch(`${worker_endpoint}/generate-agent-icon`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            treeUrl: treeUrl,
+            paperTitle: paperTitle
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `Failed to generate icon: ${response.status}`);
+    }
+
+    return await response.json();
+}

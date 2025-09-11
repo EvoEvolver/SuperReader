@@ -33,7 +33,8 @@ import {
     Psychology,
     SmartToy,
     ContentCopy,
-    Refresh
+    Refresh,
+    AutoFixHigh
 } from '@mui/icons-material';
 import MessageContent from './MessageContent';
 import {
@@ -43,9 +44,11 @@ import {
     listAgents,
     deleteAgent,
     generateAgentUrl,
+    generateAgentIcon,
     AgentInfo,
     AgentTestResponse,
-    AgentCreationResult
+    AgentCreationResult,
+    IconGenerationResult
 } from './agent-api';
 import { validateTreeUrl } from './discussion-api';
 
@@ -55,6 +58,9 @@ interface AgentGeneratorState {
     paperTitle: string;
     iconUrl: string;
     isCreating: boolean;
+    
+    // Icon generation
+    isGeneratingIcon: boolean;
     
     // Current agent
     currentAgent: AgentInfo | null;
@@ -79,6 +85,7 @@ const AppAgentGenerator: React.FC = () => {
         paperTitle: '',
         iconUrl: '',
         isCreating: false,
+        isGeneratingIcon: false,
         currentAgent: null,
         testQuestion: '',
         testResponse: null,
@@ -231,6 +238,46 @@ const AppAgentGenerator: React.FC = () => {
         }
     };
 
+    const handleGenerateIcon = async () => {
+        // Validation
+        if (!state.treeUrl.trim()) {
+            setState(prev => ({ ...prev, error: 'Tree URL is required to generate icon' }));
+            return;
+        }
+
+        if (!validateTreeUrl(state.treeUrl)) {
+            setState(prev => ({ ...prev, error: 'Invalid tree URL format' }));
+            return;
+        }
+
+        setState(prev => ({ ...prev, isGeneratingIcon: true, error: null, success: null }));
+
+        try {
+            const result = await generateAgentIcon(state.treeUrl, state.paperTitle);
+            
+            if (result.success && result.iconUrl) {
+                setState(prev => ({
+                    ...prev,
+                    iconUrl: result.iconUrl!,
+                    isGeneratingIcon: false,
+                    success: `Icon generated successfully! (${Math.round(result.durationMs! / 1000)}s)`
+                }));
+            } else {
+                setState(prev => ({
+                    ...prev,
+                    error: result.error || 'Failed to generate icon',
+                    isGeneratingIcon: false
+                }));
+            }
+        } catch (error) {
+            setState(prev => ({
+                ...prev,
+                error: error instanceof Error ? error.message : 'Failed to generate icon',
+                isGeneratingIcon: false
+            }));
+        }
+    };
+
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
         setState(prev => ({ ...prev, success: 'Copied to clipboard!' }));
@@ -286,15 +333,30 @@ const AppAgentGenerator: React.FC = () => {
                             placeholder="Enter a descriptive title for this agent"
                             sx={{ mb: 2 }}
                         />
-                        <TextField
-                            fullWidth
-                            label="Icon URL (optional)"
-                            value={state.iconUrl}
-                            onChange={(e) => setState(prev => ({ ...prev, iconUrl: e.target.value }))}
-                            placeholder="https://example.com/icon.png"
-                            sx={{ mb: 3 }}
-                            helperText="URL to an image that will be used as the agent's avatar in discussions"
-                        />
+                        <Box sx={{ mb: 3 }}>
+                            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                                <TextField
+                                    fullWidth
+                                    label="Icon URL (optional)"
+                                    value={state.iconUrl}
+                                    onChange={(e) => setState(prev => ({ ...prev, iconUrl: e.target.value }))}
+                                    placeholder="https://example.com/icon.png"
+                                    helperText="URL to an image that will be used as the agent's avatar in discussions"
+                                />
+                                <Button
+                                    variant="outlined"
+                                    startIcon={state.isGeneratingIcon ? <CircularProgress size={20} /> : <AutoFixHigh />}
+                                    onClick={handleGenerateIcon}
+                                    disabled={state.isGeneratingIcon || !state.treeUrl.trim() || !validateTreeUrl(state.treeUrl)}
+                                    sx={{ minWidth: 'auto', px: 2 }}
+                                >
+                                    {state.isGeneratingIcon ? 'Generating...' : 'Generate'}
+                                </Button>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary">
+                                Click "Generate" to automatically create an icon based on the paper content
+                            </Typography>
+                        </Box>
 
                         <Button
                             variant="contained"

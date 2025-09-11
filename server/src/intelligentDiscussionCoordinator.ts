@@ -1,10 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ChatOpenAI } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
-import * as dotenv from "dotenv";
 import { enhancedSearch } from './beamSearchService';
-
-dotenv.config();
+import { getChatModelConfig } from './config';
 
 export interface DiscussionTurn {
     round: number;
@@ -52,10 +50,7 @@ export class IntelligentDiscussionCoordinator {
     private activeDiscussions: Map<string, IntelligentDiscussionState> = new Map();
     
     constructor() {
-        this.model = new ChatOpenAI({
-            model: "gpt-4o-mini",
-            temperature: 0.7,  // Slightly higher temperature for more creative questions
-        });
+        this.model = new ChatOpenAI(getChatModelConfig());
     }
 
     /**

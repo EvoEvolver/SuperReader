@@ -1,5 +1,6 @@
 import express, {Express, Request, Response} from 'express';
 import dotenv from 'dotenv';
+import { config, validateConfig } from './config';
 import {mineruPipeline} from "./mineru";
 import {pandocPipeline, isSupportedFormat, getSupportedExtensions, getSupportedMimeTypes} from "./pandoc";
 import axios from 'axios';
@@ -17,6 +18,8 @@ import { AgentRegistry } from "./agentRegistry";
 import { DiscussionCoordinator } from "./discussionCoordinator";
 import { IntelligentDiscussionCoordinator, DiscussionConfig } from "./intelligentDiscussionCoordinator";
 import { SimpleAgentInterface } from "./simpleAgentInterface";
+import { ImageEditService } from "./imageEditService";
+import { ImageEditRequest, ImageEditResponse, ImageEditError, ImageEditErrorType } from "./types/imageEdit";
 import {
     AgentCard,
     TaskStore,
@@ -41,8 +44,11 @@ if (!FRONTEND_DIR) {
 
 dotenv.config();
 
+// Validate configuration on startup
+validateConfig();
+
 const app: Express = express();
-const port = 8081;
+const port = config.server.port;
 
 // Initialize Paper Agent Registry
 const agentRegistry = new AgentRegistry();
@@ -52,6 +58,9 @@ const discussionCoordinator = new DiscussionCoordinator();
 
 // Initialize Intelligent Discussion Coordinator
 const intelligentDiscussionCoordinator = new IntelligentDiscussionCoordinator();
+
+// Initialize Image Edit Service
+const imageEditService = new ImageEditService();
 
 app.use(express.json({limit: '50mb'}));
 app.use(express.urlencoded({limit: '50mb'}));
@@ -177,8 +186,8 @@ app.get('/supported_formats', (_req, res) => {
 
 app.use(cors({
     origin: ['http://localhost:5173', "http://localhost:7777", "http://localhost:39999", "https://treer.ai"], // Allow your frontend origin
-    methods: ['GET', 'POST', 'DELETE'], // Allowed methods
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS'], // Allowed methods
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'], // Headers for file uploads
     credentials: true // Enable credentials (cookies, authorization headers, etc)
 }));
 
@@ -593,6 +602,164 @@ app.get('/a2a/discover', async (_req, res) => {
             }
         }
     });
+});
+
+// =====================================
+// Image Editing Endpoints
+// =====================================
+
+/**
+ * Edit image using OpenAI's gpt-image-1 model
+ * POST /image-edit
+ */
+app.post('/image-edit', upload.single('mask'), async (req: Request, res: Response) => {
+    try {
+        console.log(`[API] Image edit request received`);
+        console.log(`[API] Prompt: ${req.body.prompt}`);
+        console.log(`[API] Mask provided: ${req.file ? 'Yes' : 'No'}`);
+
+        // Validate request
+        if (!req.body.prompt) {
+            return res.status(400).json({
+                success: false,
+                error: 'Prompt is required'
+            });
+        }
+
+        // Prepare request object
+        const editRequest: ImageEditRequest = {
+            prompt: req.body.prompt,
+            mask: req.file
+        };
+
+        // Process image edit
+        const result: ImageEditResponse = await imageEditService.editImage(editRequest);
+
+        // Return response
+        res.json(result);
+
+    } catch (error) {
+        console.error('[API] Image edit error:', error);
+        
+        // Handle ImageEditError instances with proper status codes
+        if (error instanceof ImageEditError) {
+            switch (error.type) {
+                case ImageEditErrorType.INVALID_PROMPT:
+                case ImageEditErrorType.INVALID_MASK_FORMAT:
+                case ImageEditErrorType.FILE_SIZE_EXCEEDED:
+                    return res.status(400).json({
+                        success: false,
+                        error: error.message
+                    });
+                default:
+                    return res.status(500).json({
+                        success: false,
+                        error: error.message
+                    });
+            }
+        }
+        
+        res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : 'Internal server error'
+        });
+    }
+});
+
+/**
+ * Get image edit service health status
+ * GET /image-edit/health
+ */
+app.get('/image-edit/health', async (req: Request, res: Response) => {
+    try {
+        const healthStatus = await imageEditService.getHealthStatus();
+        res.json(healthStatus);
+    } catch (error) {
+        console.error('[API] Health check error:', error);
+        res.status(500).json({
+            healthy: false,
+            error: error instanceof Error ? error.message : 'Health check failed'
+        });
+    }
+});
+
+/**
+ * Generate agent icon automatically using beam search and image generation
+ * POST /generate-agent-icon
+ */
+app.post('/generate-agent-icon', async (req: Request, res: Response) => {
+    try {
+        console.log('[API] Agent icon generation request received');
+        const { treeUrl, paperTitle } = req.body;
+        
+        // Validation
+        if (!treeUrl) {
+            return res.status(400).json({
+                success: false,
+                error: 'Tree URL is required'
+            });
+        }
+        
+        // Extract tree ID from URL
+        const treeIdMatch = treeUrl.match(/[?&]id=([^&]+)/);
+        if (!treeIdMatch) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid tree URL - could not extract tree ID'
+            });
+        }
+        const treeId = treeIdMatch[1];
+        
+        console.log(`[API] Generating icon for tree ID: ${treeId}`);
+        
+        // Use beam search to get a summary of the paper
+        const searchQuestion = "What is this paper about? Provide a brief summary of the main topic, methodology, and key findings.";
+        const host = treeUrl.includes('treer.ai') ? 'https://treer.ai' : 'http://0.0.0.0:29999';
+        
+        console.log(`[API] Running beam search to summarize paper...`);
+        const searchResult = await enhancedSearch(searchQuestion, treeId, host);
+        
+        if (!searchResult.answer || searchResult.answer.length < 50) {
+            return res.status(400).json({
+                success: false,
+                error: 'Could not generate meaningful summary from the paper content'
+            });
+        }
+        
+        // Create a prompt for icon generation based on the summary
+        const iconPrompt = `Create a professional cartoon-style icon representing this research paper: ${searchResult.answer}. The icon should be simple, recognizable, and suitable as an avatar. Focus on the main subject matter and use clean, modern design elements.`;
+        
+        console.log(`[API] Generating icon with prompt: "${iconPrompt.substring(0, 100)}..."`);
+        
+        // Generate the icon using the image edit service
+        const iconResult = await imageEditService.editImage({
+            prompt: iconPrompt
+        });
+        
+        if (!iconResult.success) {
+            return res.status(500).json({
+                success: false,
+                error: iconResult.error || 'Failed to generate icon'
+            });
+        }
+        
+        console.log(`[API] Icon generated successfully: ${iconResult.imageUrl}`);
+        
+        res.json({
+            success: true,
+            iconUrl: iconResult.imageUrl,
+            summary: searchResult.answer,
+            durationMs: iconResult.durationMs,
+            operationId: iconResult.operationId
+        });
+        
+    } catch (error) {
+        console.error('[API] Agent icon generation error:', error);
+        res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : 'Internal server error'
+        });
+    }
 });
 
 // =====================================
@@ -1250,12 +1417,18 @@ app.post('/discussions/:discussionId/conclude', async (req: Request, res: Respon
 
 process.on('SIGTERM', async () => {
     console.log('SIGTERM received, shutting down gracefully...');
-    await agentRegistry.shutdown();
+    await Promise.all([
+        agentRegistry.shutdown(),
+        imageEditService.shutdown()
+    ]);
     process.exit(0);
 });
 
 process.on('SIGINT', async () => {
     console.log('SIGINT received, shutting down gracefully...');
-    await agentRegistry.shutdown();
+    await Promise.all([
+        agentRegistry.shutdown(),
+        imageEditService.shutdown()
+    ]);
     process.exit(0);
 });

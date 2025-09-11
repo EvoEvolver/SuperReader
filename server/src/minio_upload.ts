@@ -1,28 +1,16 @@
-import { config } from 'dotenv';
 import { Client } from 'minio';
 import { basename, resolve } from 'path';
 import { existsSync } from 'fs';
+import { getMinioConfig } from './config';
 
-// Load .env variables
-config();
+// MinIO client setup using centralized configuration
+const minioConfig = getMinioConfig();
 
-// decompose the url into protocol, endpoint and port
-const url = process.env.MINIO_ENDPOINT;
-if (!url) throw new Error('MINIO_ENDPOINT environment variable is not set');
-
-const urlParts = new URL(url);
-const protocol = urlParts.protocol.replace(':', '');
-const endpoint = urlParts.hostname;
-const port = urlParts.port ? parseInt(urlParts.port) : (protocol === 'https' ? 443 : 80);
-
-
-// MinIO client setup
 export const minioClient = new Client({
-  endPoint: endpoint,
-  port: port,
-  accessKey: process.env.MINIO_ACCESS_KEY!,
-  secretKey: process.env.MINIO_SECRET_KEY!,
-  useSSL: protocol === 'https',
+  endPoint: minioConfig.endPoint,
+  accessKey: minioConfig.accessKey,
+  secretKey: minioConfig.secretKey,
+  useSSL: minioConfig.useSSL,
 });
 
 export async function uploadFileToMinio(
