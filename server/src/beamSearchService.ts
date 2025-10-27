@@ -1,9 +1,9 @@
-import {NodeM, TreeM} from "@forest/schema"
 import {ChatOpenAI} from "@langchain/openai";
 import {PromptTemplate} from "@langchain/core/prompts";
-import * as dotenv from "dotenv"
 import TurndownService from 'turndown'
 import showdown from "showdown"
+import { getChatModelConfig } from './config';
+import { NodeM, TreeM } from "./schema";
 
 // A2A Protocol enhanced interfaces
 export interface SearchResult {
@@ -32,12 +32,7 @@ export interface SearchOptions {
     confidence_threshold?: number;
 }
 
-dotenv.config();
-
-const model = new ChatOpenAI({
-    model: "gpt-4o-mini",
-    temperature: 0.5,
-});
+const model = new ChatOpenAI(getChatModelConfig());
 
 function getNodeContent(node: NodeM) {
     let nodeTypeName = node.nodeTypeName();
@@ -52,8 +47,19 @@ function getNodeContent(node: NodeM) {
     if (nodeTypeName === "ReaderNodeType") {
         const data = node.data()
         const htmlContent = data.htmlContent
+        
+        // Check if htmlContent is valid before processing
+        if (!htmlContent || typeof htmlContent !== 'string') {
+            return "No content available."
+        }
+        
         const turndownService = new TurndownService()
-        return turndownService.turndown(htmlContent)
+        try {
+            return turndownService.turndown(htmlContent)
+        } catch (error) {
+            console.warn(`[getNodeContent] Failed to convert HTML to markdown for node ${node.id}:`, error)
+            return "Content processing error."
+        }
     } else if (nodeTypeName === "EditorNodeType") {
         const editorContent = node.ydata().get("ydatapaperEditor").toJSON()
         if (!editorContent || editorContent.trim().length === 0) {
@@ -61,6 +67,9 @@ function getNodeContent(node: NodeM) {
         }
         return editorContent
     }
+    
+    // Fallback for unknown node types
+    return "Unknown node type."
 }
 
 
