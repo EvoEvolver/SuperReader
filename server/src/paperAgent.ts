@@ -246,6 +246,44 @@ export class PaperAgent {
             }
         });
 
+        /**
+         * Legacy A2A discovery endpoint
+         * GET /a2a/discover
+         */
+        this.app.get('/a2a/discover', async (_req, res) => {
+            res.json({
+                compatible_agents: [
+                    {
+                        name: "Document Processing Agent",
+                        description: "Processes various document formats into knowledge trees",
+                        capabilities: ["document_to_tree", "pdf_to_tree"],
+                        endpoint: "/submit/document_to_tree"
+                    }
+                ],
+                collaboration_patterns: [
+                    {
+                        pattern: "search_then_process",
+                        description: "Search for relevant documents, then process them into knowledge trees for deeper analysis"
+                    },
+                    {
+                        pattern: "multi_tree_search",
+                        description: "Search across multiple knowledge trees and combine results"
+                    }
+                ],
+                supported_protocols: ["A2A", "HTTP/REST"],
+                agent_info: {
+                    name: "SuperReader Knowledge Search Agent",
+                    version: "1.0.0",
+                    specialization: "Knowledge tree search and intelligent answer generation",
+                    performance: {
+                        avg_response_time_ms: 2500,
+                        supported_languages: ["English", "Chinese", "Multi-language"],
+                        max_concurrent_requests: 10
+                    }
+                }
+            });
+        });
+
         // Debug: Check if A2A routes are properly setup
         this.app.get('/debug/routes', (req, res) => {
             const routes = [];

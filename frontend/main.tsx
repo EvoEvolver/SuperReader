@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppWait } from './AppWait';
 import AppUpload from "./AppUpload";
 import AppSearcher from "./AppSearcher";
+import AppAgenticSearcher from "./AppAgenticSearcher";
 import AppDiscussion from "./AppDiscussion";
 import AppAgentGenerator from "./AppAgentGenerator";
 import AppAgentManagement from "./AppAgentManagement";
@@ -18,6 +19,7 @@ if (rootElement) {
                 <Route path="/wait" element={<AppWait />} />
                 <Route path="/upload" element={<AppUpload />} />
                 <Route path="/searcher" element={<AppSearcher />} />
+                <Route path="/agentic-searcher" element={<AppAgenticSearcher />} />
                 <Route path="/discuss" element={<AppDiscussion />} />
                 <Route path="/agent-generator" element={<AppAgentGenerator />} />
                 <Route path="/agent-management" element={<AppAgentManagement />} />

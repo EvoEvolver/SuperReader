@@ -448,4 +448,135 @@ export async function beamSearchMain(question: string, treeId: string, host: str
     return result.answer;
 }
 
+// Event-based search function for SSE
+export async function beamSearchWithEvents(
+    question: string,
+    treeId: string,
+    host: string = 'http://0.0.0.0:29999',
+    emitEvent: (event: string, data: any) => void
+) {
+    let tree = null;
+    try {
+        const wsHost = host.replace("http", "ws");
+
+        // Emit starting event
+        emitEvent('status', { stage: 'connecting', message: 'Connecting to tree...' });
+
+        // Connect to tree with timeout
+        let timeoutId = null;
+        const treePromise = TreeM.treeFromWsWait(wsHost, treeId);
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                reject(new Error(`Tree connection timeout after 60 seconds. Host: ${wsHost}, TreeID: ${treeId}`));
+            }, 60000);
+        });
+
+        try {
+            tree = await Promise.race([treePromise, timeoutPromise]);
+            if (timeoutId) clearTimeout(timeoutId);
+        } catch (error) {
+            if (timeoutId) clearTimeout(timeoutId);
+            throw error;
+        }
+
+        if (!tree) {
+            throw new Error(`Failed to connect to tree. Host: ${wsHost}, TreeID: ${treeId}`);
+        }
+
+        const root = tree.getRoot();
+        if (!root) {
+            throw new Error(`Tree has no root node. TreeID: ${treeId}`);
+        }
+
+        emitEvent('status', { stage: 'connected', message: 'Connected to tree. Starting search...' });
+
+        // Perform beam search with progress updates
+        const nodeQueue: NodeM[] = [root];
+        const visitedNodes = new Set<string>();
+        const matchedNodesSet = new Set<NodeM>();
+        let iteration = 0;
+
+        while (nodeQueue.length > 0) {
+            iteration++;
+            emitEvent('progress', {
+                stage: 'searching',
+                iteration,
+                queueSize: nodeQueue.length,
+                matchedCount: matchedNodesSet.size,
+                message: `Searching iteration ${iteration}: ${nodeQueue.length} nodes in queue, ${matchedNodesSet.size} matches found`
+            });
+
+            const nodeTouched: NodeM[] = [];
+            const promises = nodeQueue.map(async (node) => {
+                return await pickNext(node, question, tree);
+            });
+
+            const results = await Promise.all(promises);
+
+            for (const result of results) {
+                // Emit matched nodes
+                if (result.matchedNodes.length > 0) {
+                    const newMatches = result.matchedNodes.filter(node => !matchedNodesSet.has(node));
+                    if (newMatches.length > 0) {
+                        emitEvent('nodes_matched', {
+                            count: newMatches.length,
+                            nodes: newMatches.map(node => ({
+                                id: node.id,
+                                title: typeof node.title === 'string' ? node.title : node.title() || "Untitled"
+                            }))
+                        });
+                    }
+                }
+
+                result.matchedNodes.forEach(node => matchedNodesSet.add(node));
+                nodeTouched.push(...result.matchedNodes);
+                nodeTouched.push(...result.parentNodes);
+            }
+
+            nodeQueue.length = 0;
+            for (const node of nodeTouched) {
+                const nodeId = node.id;
+                if (!visitedNodes.has(nodeId)) {
+                    nodeQueue.push(node);
+                    visitedNodes.add(nodeId);
+                }
+            }
+        }
+
+        const matchedNodes = Array.from(matchedNodesSet);
+
+        emitEvent('status', {
+            stage: 'search_complete',
+            matchedCount: matchedNodes.length,
+            message: `Search complete. Found ${matchedNodes.length} relevant nodes. Generating answer...`
+        });
+
+        if (matchedNodes.length > 0) {
+            const treeUrl = new URL(`?id=${treeId}`, host).toString();
+
+            // Generate answer with status update
+            emitEvent('status', { stage: 'generating', message: 'Generating answer from matched nodes...' });
+
+            const answer = await generateAnswer(matchedNodes, question, treeUrl);
+
+            // Emit the final answer
+            emitEvent('answer', { answer });
+        } else {
+            emitEvent('answer', { answer: 'No relevant information found.' });
+        }
+
+    } catch (error) {
+        console.error("Error in beamSearchWithEvents:", error);
+        emitEvent('error', { message: error.message || 'An error occurred during search' });
+    } finally {
+        if (tree && typeof tree.close === 'function') {
+            try {
+                tree.close();
+            } catch (closeError) {
+                console.warn(`Error closing WebSocket connection:`, closeError);
+            }
+        }
+    }
+}
+
 //beamSearchMain("What is the methodology of the paper","aaae6158-7889-4e4a-a200-14d9f54cb467", "https://treer.ai")
