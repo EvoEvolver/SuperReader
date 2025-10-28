@@ -148,6 +148,9 @@ app.get('/upload', (_req, res) => {
 app.get('/searcher', (_req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, "index.html"));
 });
+app.get('/agentic-searcher', (_req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, "index.html"));
+});
 app.get('/discuss', (_req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, "index.html"));
 });
