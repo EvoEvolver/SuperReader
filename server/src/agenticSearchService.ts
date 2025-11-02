@@ -4,14 +4,6 @@ import {NodeM, TreeM} from "./schema";
 import TurndownService from 'turndown';
 import {createAgenticSearchTools} from "./agenticSearchTools";
 
-export interface MatchedNode {
-    id: string;
-    title: string;
-    content: string;
-    relevance_score: number;
-    node_type: string;
-}
-
 export interface AgenticSearchOptions {
     max_iterations?: number;
     max_nodes?: number;
@@ -86,7 +78,6 @@ export async function agenticSearchWithEvents(
         search_iterations: 0
     };
 
-    const maxIterations = options.max_iterations || 10;
     let tree: TreeM | null = null;
 
     try {
@@ -167,13 +158,10 @@ TREE STRUCTURE:
 ${rootChildrenInfo.map(child => `  - [${child.id}] ${child.title}\n    Preview: ${child.preview}...`).join('\n')}
 
 YOUR TASK:
-1. Explore the tree strategically to find nodes that help answer the question
-2. Use getNodeChildren to explore promising branches
-3. Use getNodeContent to examine nodes in detail
-4. Use analyzeImage to extract information from images, diagrams, charts, or screenshots (if image URLs are found)
-5. Use markNodeRelevant to flag nodes that contain useful information
-6. Continue exploring until you have enough information
-7. Use generateAnswer with a comprehensive markdown report when you're ready to provide the final answer
+- Explore the tree strategically to find nodes that help answer the question
+- Use markNodeRelevant to flag nodes that contain useful information
+- Continue exploring until you have enough information
+- Use generateAnswer with a comprehensive markdown report when you're ready to provide the final answer
 
 STRATEGY:
 - Start by exploring the most promising root children based on their titles/previews
@@ -204,7 +192,7 @@ IMPORTANT:
             tools,
             system: systemPrompt,
             prompt: `Begin exploring the tree to answer the question: "${question}". Start by examining the root's children and then explore the most promising branches.`,
-            stopWhen: stepCountIs(40),
+            stopWhen: stepCountIs(50),
         });
 
         stats.search_iterations = result.steps.length;

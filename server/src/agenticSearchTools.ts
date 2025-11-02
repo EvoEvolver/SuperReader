@@ -12,7 +12,75 @@ function getNodeTitle(node: NodeM): string {
 // Helper function to get node content
 import TurndownService from 'turndown';
 
-function getNodeContent(node: NodeM): string {
+
+
+async function relevanceToOLED(content: string, image_url: string): Promise<string[]> {
+    const prompt = `
+I will provide a figure from a scientific paper.
+
+Your task is to extract OLED-related information from the figure.
+
+Specifically, look for any of the following **properties** in the figure:
+- Absorption max (peak absorption wavelength)
+- Emission max (peak emission wavelength)
+- Lifetime (excited-state lifetime)
+- Quantum yield (efficiency of emission)
+- log(ε) (log molar extinction coefficient)
+- PLQY (photoluminescence quantum yield)
+- Any other OLED-related photophysical properties
+
+Extract each piece of information as a separate string. Each string should be a complete, self-contained piece of information (e.g., "Compound A: λabs = 450 nm", "PLQY = 85%", "Lifetime = 5.2 ns").
+
+If the figure contains OLED-related information, extract it line by line.
+If the figure is not OLED-related or contains no extractable information, return an empty array.
+
+Output your answer as a JSON object with the key "oled_info" containing an array of strings.
+Example: {"oled_info": ["Compound 1: λabs = 450 nm, λem = 520 nm", "PLQY = 85%", "Lifetime = 5.2 ns"]}
+
+Context from the paper: ${content}
+`;
+
+    try {
+        const result = await generateText({
+            model: openai('gpt-4o'),
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'text',
+                            text: prompt
+                        },
+                        {
+                            type: 'image',
+                            image: image_url
+                        }
+                    ]
+                }
+            ]
+        });
+
+        // Parse the JSON response
+        const jsonMatch = result.text.match(/\{[^}]*"oled_info"[^}]*\]/);
+        if (jsonMatch) {
+            // Find the complete JSON object
+            const fullJsonMatch = result.text.match(/\{[^}]*"oled_info"\s*:\s*\[[^\]]*\]\s*\}/);
+            if (fullJsonMatch) {
+                const parsed = JSON.parse(fullJsonMatch[0]);
+                return Array.isArray(parsed.oled_info) ? parsed.oled_info : [];
+            }
+        }
+
+        // If no valid JSON found, log warning and return empty array
+        console.warn('[relevanceToOLED] Could not parse JSON response:', result.text);
+        return [];
+    } catch (error) {
+        console.error('[relevanceToOLED] Error analyzing image for OLED relevance:', error);
+        return [];
+    }
+}
+
+async function getNodeContent(node: NodeM): Promise<string> {
     let nodeTypeName = node.nodeTypeName();
     if (!nodeTypeName) {
         if (node.ymap.get("tabs")["content"] === `<PaperEditorMain/>`) {
@@ -24,10 +92,51 @@ function getNodeContent(node: NodeM): string {
 
     if (nodeTypeName === "ReaderNodeType") {
         const data = node.data();
-        const htmlContent = data.htmlContent;
+        let htmlContent = data.htmlContent;
 
         if (!htmlContent || typeof htmlContent !== 'string') {
             return "No content available.";
+        }
+
+        // Parse HTML content to find image URLs
+        const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+        const imageMatches: Array<{url: string, fullTag: string}> = [];
+        let match;
+        while ((match = imgRegex.exec(htmlContent)) !== null) {
+            imageMatches.push({
+                url: match[1],
+                fullTag: match[0]
+            });
+        }
+
+        // Log image URLs to console if found
+        if (imageMatches.length > 0) {
+            console.log(`[Node ${node.id}] Found ${imageMatches.length} image(s):`);
+
+            // Get text context for OLED analysis
+            const turndownService = new TurndownService();
+            const textContext = turndownService.turndown(htmlContent).slice(0, 1000);
+
+            // Process each image for OLED relevance
+            for (let i = 0; i < imageMatches.length; i++) {
+                const {url, fullTag} = imageMatches[i];
+                console.log(`  Image ${i + 1}: ${url}`);
+
+                try {
+                    const oledInfo = await relevanceToOLED(textContext, url);
+
+                    if (oledInfo.length > 0) {
+                        // Replace image tag with extracted OLED information
+                        const replacementText = `\n<div class="oled-extracted-info">\n<p><strong>OLED Information extracted from image:</strong></p>\n<ul>\n${oledInfo.map(info => `<li>${info}</li>`).join('\n')}\n</ul>\n</div>\n`;
+                        htmlContent = htmlContent.replace(fullTag, replacementText);
+                        console.log(`  [Node ${node.id}] Replaced image ${i + 1} with ${oledInfo.length} extracted OLED properties`);
+                    } else {
+                        console.log(`  [Node ${node.id}] Image ${i + 1} contains no relevant OLED information`);
+                    }
+                } catch (error) {
+                    console.error(`  [Node ${node.id}] Error processing image ${i + 1}:`, error);
+                }
+            }
         }
 
         const turndownService = new TurndownService();
@@ -103,20 +212,25 @@ export function createAgenticSearchTools(context: AgenticSearchToolsContext) {
                     childrenCount: children.length
                 });
 
+                // Get previews for all children
+                const childrenWithPreviews = await Promise.all(
+                    children.map(async (child) => ({
+                        id: child.id,
+                        title: getNodeTitle(child),
+                        preview: (await getNodeContent(child)).slice(0, 200)
+                    }))
+                );
+
                 return {
                     nodeId,
                     nodeTitle: getNodeTitle(node),
-                    children: children.map(child => ({
-                        id: child.id,
-                        title: getNodeTitle(child),
-                        preview: getNodeContent(child).slice(0, 200)
-                    }))
+                    children: childrenWithPreviews
                 };
             },
         }),
 
         getNodeContent: tool({
-            description: 'Get the full content of a specific node by its ID. Use this when you want to examine a node in detail to determine if it contains the answer.',
+            description: 'Get the full content of a specific node by its ID, along with its children. Returns the node content and a list of child nodes with their IDs and titles. Use this when you want to examine a node in detail and see what children it has.',
             inputSchema: z.object({
                 nodeId: z.string().describe('The ID of the node whose content you want to retrieve'),
             }),
@@ -130,18 +244,36 @@ export function createAgenticSearchTools(context: AgenticSearchToolsContext) {
                 stats.nodes_explored++;
                 exploredNodeIds.add(nodeId);
 
+                // Get children
+                const children = getChildren(tree, node);
+                children.forEach(cacheNode);
+
+                // Get node content (async operation)
+                const content = await getNodeContent(node);
+
+                // Get previews for all children
+                const childrenWithPreviews = await Promise.all(
+                    children.map(async (child) => ({
+                        id: child.id,
+                        title: getNodeTitle(child),
+                        preview: (await getNodeContent(child)).slice(0, 200)
+                    }))
+                );
+
                 emitEvent('tool_call', {
                     tool: 'getNodeContent',
                     nodeId,
                     nodeTitle: getNodeTitle(node),
-                    contentLength: getNodeContent(node).length
+                    contentLength: content.length,
+                    childrenCount: children.length
                 });
 
                 return {
                     nodeId,
                     title: getNodeTitle(node),
-                    content: getNodeContent(node),
-                    nodeType: node.nodeTypeName() || "unknown"
+                    content: content,
+                    nodeType: node.nodeTypeName() || "unknown",
+                    children: childrenWithPreviews
                 };
             },
         }),
@@ -193,6 +325,7 @@ export function createAgenticSearchTools(context: AgenticSearchToolsContext) {
                     const parent = tree.getParent(node);
                     if (parent) {
                         cacheNode(parent);
+                        const parentContent = await getNodeContent(parent);
                         emitEvent('tool_call', {
                             tool: 'getParentNode',
                             nodeId,
@@ -202,7 +335,7 @@ export function createAgenticSearchTools(context: AgenticSearchToolsContext) {
                         return {
                             nodeId: parent.id,
                             title: getNodeTitle(parent),
-                            preview: getNodeContent(parent).slice(0, 200)
+                            preview: parentContent.slice(0, 200)
                         };
                     } else {
                         return {error: 'No parent found (might be root)'};
