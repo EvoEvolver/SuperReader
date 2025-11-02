@@ -264,8 +264,8 @@ export function createAgenticSearchTools(context: AgenticSearchToolsContext) {
                     tool: 'getNodeContent',
                     nodeId,
                     nodeTitle: getNodeTitle(node),
-                    contentLength: content.length,
-                    childrenCount: children.length
+                    contentLength: content.length
+                    //childrenCount: children.length
                 });
 
                 return {
