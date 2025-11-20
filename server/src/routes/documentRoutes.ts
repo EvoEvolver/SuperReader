@@ -5,9 +5,11 @@ import path from 'path';
 import axios from 'axios';
 import { randomUUID } from 'node:crypto';
 import { minioClient } from '../minio_upload';
-import { mineruPipeline } from '../mineru';
+import { mineruSelfHostedPipeline } from '../mineru_selfhosted';
 import { pandocPipeline, isSupportedFormat, getSupportedExtensions, getSupportedMimeTypes } from '../pandoc';
 import { getJobProgress, JobStatus, setJobProgress } from '../jobStatus';
+import fs from 'fs';
+import os from 'os';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -158,11 +160,24 @@ router.post('/upload_document', upload.single('file'), async (req: Request & { f
 });
 
 // Helper functions for processing
-async function processPdfToTree(file_url: string, job_id: string, userid?: string) {
-    try {
-        const result = await mineruPipeline(file_url, job_id);
-        try {
+async function downloadFileToTemp(file_url: string): Promise<string> {
+    const response = await axios.get(file_url, { responseType: 'arraybuffer' });
+    const tempDir = os.tmpdir();
+    const tempFilePath = path.join(tempDir, `${randomUUID()}.pdf`);
+    fs.writeFileSync(tempFilePath, response.data);
+    return tempFilePath;
+}
 
+async function processPdfToTree(file_url: string, job_id: string, userid?: string) {
+    let tempFilePath: string | null = null;
+    try {
+        // Download file to temporary location
+        tempFilePath = await downloadFileToTemp(file_url);
+
+        // Process using self-hosted pipeline
+        const result = await mineruSelfHostedPipeline(tempFilePath, job_id);
+
+        try {
             await setJobProgress(job_id, {
                 status: JobStatus.PROCESSING,
                 message: "Generating the tree",
@@ -199,6 +214,11 @@ async function processPdfToTree(file_url: string, job_id: string, userid?: strin
             message: "Pipeline failed:" + e.toString(),
         });
         console.error("Pipeline failed:", e);
+    } finally {
+        // Clean up temporary file
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+        }
     }
 }
 
