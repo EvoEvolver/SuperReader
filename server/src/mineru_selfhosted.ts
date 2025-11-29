@@ -206,9 +206,10 @@ export async function mineruSelfHostedPipeline(
 
     if (assetPaths.length > 0) {
         console.log('Uploading images to MinIO...');
+        const mdDir = path.dirname(fullMdPath);
         await Promise.all(
             assetPaths.map(asset =>
-                uploadFileToMinio(path.join(outputDir, asset), 'images')
+                uploadFileToMinio(path.join(mdDir, asset), 'images')
             )
         );
         console.log('All images uploaded successfully');
