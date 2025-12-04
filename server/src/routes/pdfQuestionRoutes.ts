@@ -49,6 +49,7 @@ const upload = multer({
  */
 router.post('/pdf_question_stream', upload.single('file'), async (req: Request, res: Response) => {
     const jobId = uuidv4();
+    let pdfPath: string | null = null; // Track renamed path for cleanup
 
     try {
         // Validate inputs
@@ -94,8 +95,15 @@ router.post('/pdf_question_stream', upload.single('file'), async (req: Request, 
         });
 
         // Step 1: Parse PDF to markdown using MinerU
+        // Rename the file to have .pdf extension
+        const originalPath = req.file.path;
+        pdfPath = `${originalPath}.pdf`;
+        fs.renameSync(originalPath, pdfPath);
+
+        // Convert to absolute path
+        const absolutePdfPath = path.resolve(pdfPath);
         const markdownContent = await mineruSelfHostedPipeline(
-            req.file.path,
+            absolutePdfPath,
             jobId,
             {
                 parseFormula,
@@ -123,9 +131,9 @@ router.post('/pdf_question_stream', upload.single('file'), async (req: Request, 
             }
         );
 
-        // Clean up the uploaded file
+        // Clean up the uploaded file (with .pdf extension)
         try {
-            fs.unlinkSync(req.file.path);
+            fs.unlinkSync(pdfPath);
         } catch (error) {
             console.warn(`[pdf_question_stream] Failed to delete uploaded file: ${error}`);
         }
@@ -152,7 +160,9 @@ router.post('/pdf_question_stream', upload.single('file'), async (req: Request, 
         // Clean up uploaded file on error
         if (req.file) {
             try {
-                fs.unlinkSync(req.file.path);
+                // Try to delete the renamed file first, fall back to original path
+                const pathToDelete = pdfPath || req.file.path;
+                fs.unlinkSync(pathToDelete);
             } catch (cleanupError) {
                 console.warn(`[pdf_question_stream] Failed to delete uploaded file: ${cleanupError}`);
             }

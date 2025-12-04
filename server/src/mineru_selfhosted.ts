@@ -130,13 +130,14 @@ async function callParseApi(
         filename: filename,
         contentType: 'application/pdf'
     });
-    formData.append('parse_formula', parseFormula ? 'true' : 'false');
-    formData.append('parse_table', parseTable ? 'true' : 'false');
-    formData.append('parse_ocr', parseOcr ? 'true' : 'false');
-    formData.append('dpi', dpi.toString());
+    formData.append('parse_formula', String(parseFormula));
+    formData.append('parse_table', String(parseTable));
+    formData.append('parse_ocr', String(parseOcr));
+    formData.append('dpi', String(dpi));
 
     // Send request to the API
     console.log(`Sending request to ${API_BASE_URL}/parse/sync/zip`);
+    console.log(`Form data fields: parse_formula=${parseFormula}, parse_table=${parseTable}, parse_ocr=${parseOcr}, dpi=${dpi}`);
 
     const response = await axios.post(
         `${API_BASE_URL}/parse/sync/zip`,
@@ -167,7 +168,8 @@ async function callParseApi(
 function unzipResult(zipBuffer: Buffer, pdfPath: string): string {
     console.log('Extracting parsing results...');
 
-    const zipFilename = path.basename(pdfPath, '.pdf');
+    // Use the basename as-is since uploaded files typically don't have extensions
+    const zipFilename = path.basename(pdfPath);
     const outputDir = path.join(process.cwd(), 'pdf_result', zipFilename);
 
     fs.mkdirSync(outputDir, {recursive: true});
@@ -403,33 +405,4 @@ export async function mineruSelfHostedPipeline(
         return markdownContent;
     }
     return htmlContent;
-}
-
-/**
- * Simple function to just get the ZIP file
- * @param pdfPath - Path to the PDF file
- * @param options - Parsing options
- * @returns Buffer containing the ZIP file
- */
-export async function parsePdfToZip(
-    pdfPath: string,
-    options: ParseOptions = {}
-): Promise<Buffer> {
-    return await callParseApi(pdfPath, options);
-}
-
-/**
- * Parse PDF and save ZIP to file
- * @param pdfPath - Path to the PDF file
- * @param outputPath - Path where to save the ZIP file
- * @param options - Parsing options
- */
-export async function parsePdfAndSaveZip(
-    pdfPath: string,
-    outputPath: string,
-    options: ParseOptions = {}
-): Promise<void> {
-    const zipBuffer = await callParseApi(pdfPath, options);
-    fs.writeFileSync(outputPath, zipBuffer);
-    console.log(`ZIP file saved to: ${outputPath}`);
 }
