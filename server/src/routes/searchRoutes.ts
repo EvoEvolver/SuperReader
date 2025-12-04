@@ -1,6 +1,6 @@
 import {Request, Response, Router} from 'express';
 import {beamSearchMain, beamSearchWithEvents} from '../beamSearchService';
-import {agenticSearchWithEvents} from '../agenticSearchService';
+import {agenticSearchWithEvents} from '../agenticSearchByTree/agenticSearchService';
 
 const router = Router();
 
