@@ -67,7 +67,7 @@ router.post('/pdf_question_stream', upload.single('file'), async (req: Request, 
 
         // Parse options
         const maxIterations = parseInt(req.body.max_iterations) || 20;
-        const model = req.body.model || 'gpt-4o-mini';
+        const model = req.body.model || 'gpt-5-mini';
         const parseFormula = req.body.parse_formula !== 'false';
         const parseTable = req.body.parse_table !== 'false';
         const parseOcr = req.body.parse_ocr !== 'false';

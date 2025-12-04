@@ -130,10 +130,10 @@ async function callParseApi(
         filename: filename,
         contentType: 'application/pdf'
     });
-    formData.append('parse_formula', String(parseFormula));
-    formData.append('parse_table', String(parseTable));
-    formData.append('parse_ocr', String(parseOcr));
-    formData.append('dpi', String(dpi));
+    formData.append('parse_formula', parseFormula);
+    formData.append('parse_table', parseTable);
+    formData.append('parse_ocr', parseOcr);
+    formData.append('dpi', dpi);
 
     // Send request to the API
     console.log(`Sending request to ${API_BASE_URL}/parse/sync/zip`);
