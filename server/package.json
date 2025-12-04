@@ -22,6 +22,7 @@
   "dependencies": {
     "@a2a-js/sdk": "^0.3.0",
     "@ai-sdk/openai": "^2.0.53",
+    "@dqbd/tiktoken": "^1.0.22",
     "@langchain/core": "^0.3.62",
     "@langchain/openai": "^0.5.18",
     "@types/multer": "^1.4.13",
@@ -44,8 +45,8 @@
     "redis": "^5.5.6",
     "showdown": "^2.1.0",
     "turndown": "^7.2.0",
-    "y-websocket": "3.0.0",
     "uuid": "^11.0.3",
+    "y-websocket": "3.0.0",
     "yjs": "^13.6.27",
     "zod": "^3.25.76"
   },

@@ -8,6 +8,8 @@ export interface AgenticReaderOptions {
   model?: string;
   include_metadata?: boolean;
 }
+import { encoding_for_model } from "@dqbd/tiktoken";
+
 
 export interface AgenticReaderResult {
   answer: string;
@@ -153,9 +155,18 @@ When you're ready to provide the final answer, include it in your last response 
       stats,
     });
 
+    //Returns the number of tokens in a text string
+    function numTokensFromString(message: string) {
+      const encoder = encoding_for_model("gpt-5");
+      const tokens = encoder.encode(message);
+      encoder.free();
+      return tokens.length;
+    }
+
     emitEvent('answer', {
       answer: result.text,
       usage: result.usage,
+      markdownLengthTokens: numTokensFromString(markdownContent),
     });
 
     if (include_metadata) {
