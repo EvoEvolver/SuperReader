@@ -8,7 +8,7 @@ export interface AgenticReaderOptions {
   model?: string;
   include_metadata?: boolean;
 }
-import { encoding_for_model } from "@dqbd/tiktoken";
+import { encoding_for_model } from "tiktoken";
 
 
 export interface AgenticReaderResult {
