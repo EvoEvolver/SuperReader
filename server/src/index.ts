@@ -19,6 +19,7 @@ import { createPaperAgentRoutes } from './routes/paperAgentRoutes';
 import { createDiscussionRoutes } from './routes/discussionRoutes';
 import searchRoutes from './routes/searchRoutes';
 import { createAgentProxyRoutes } from './routes/agentProxyRoutes';
+import pdfQuestionRoutes from './routes/pdfQuestionRoutes';
 
 let FRONTEND_DIR = process.env.FRONTEND_DIR
 if (!FRONTEND_DIR) {
@@ -171,6 +172,7 @@ app.use(cors({
 // Mount routers
 app.use('/', documentRoutes);
 app.use('/', searchRoutes);
+app.use('/', pdfQuestionRoutes);
 app.use('/paper-agents', createPaperAgentRoutes(agentRegistry));
 app.use('/discussions', createDiscussionRoutes(discussionCoordinator, intelligentDiscussionCoordinator));
 app.use('/agents', createAgentProxyRoutes(agentRegistry));
