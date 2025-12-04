@@ -9,8 +9,83 @@ import {URL} from 'url';
 import {uploadFileToMinio} from './minio_upload';
 import katex from "katex";
 import {JobStatus, setJobProgress} from "./jobStatus";
+import {MongoClient, Db, Collection} from 'mongodb';
+import crypto from 'crypto';
 
 dotenv.config();
+
+/**
+ * MongoDB Caching System
+ *
+ * This module implements caching for MinerU PDF parsing results using MongoDB.
+ *
+ * How it works:
+ * 1. Cache Key Generation: Combines SHA256 hash of PDF content + parsing options
+ * 2. Cache Check: Before parsing, checks if result exists in MongoDB
+ * 3. Cache Storage: After successful parsing, stores both markdown and HTML results
+ *
+ * Database: tree_gen_cache
+ * Collection: mineru_parsed_pdfs
+ *
+ * Environment Variables:
+ * - MONGO_URL: MongoDB connection string (e.g., mongodb://localhost:27017)
+ *
+ * Cache Entry Structure:
+ * - cache_key: Unique identifier (PDF hash + options hash)
+ * - pdf_path: Original PDF filename
+ * - markdown_content: Processed markdown content
+ * - html_content: Rendered HTML content
+ * - options: Parsing options used
+ * - created_at: Timestamp of cache creation
+ * - image_count: Number of images processed
+ */
+
+// MongoDB connection
+let mongoClient: MongoClient | null = null;
+let db: Db | null = null;
+let cacheCollection: Collection | null = null;
+
+/**
+ * Initialize MongoDB connection
+ */
+async function initMongo(): Promise<void> {
+    if (mongoClient && db && cacheCollection) {
+        return; // Already initialized
+    }
+
+    const mongoUrl = process.env.MONGO_URL;
+    if (!mongoUrl) {
+        console.warn('MONGO_URL not set, caching will be disabled');
+        return;
+    }
+
+    try {
+        mongoClient = new MongoClient(mongoUrl);
+        await mongoClient.connect();
+        db = mongoClient.db('tree_gen_cache');
+        cacheCollection = db.collection('mineru_parsed_pdfs');
+
+        // Create index on cache_key for faster lookups
+        await cacheCollection.createIndex({cache_key: 1}, {unique: true});
+
+        console.log('MongoDB cache initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize MongoDB cache:', error);
+        mongoClient = null;
+        db = null;
+        cacheCollection = null;
+    }
+}
+
+/**
+ * Generate cache key from PDF file
+ */
+function generateCacheKey(pdfPath: string, options: ParseOptions): string {
+    const fileBuffer = fs.readFileSync(pdfPath);
+    const fileHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    const optionsHash = crypto.createHash('sha256').update(JSON.stringify(options)).digest('hex');
+    return `${fileHash}_${optionsHash}`;
+}
 
 const API_BASE_URL = process.env.MINERU_API_URL || 'https://minerudeployment-production.up.railway.app';
 
@@ -152,15 +227,43 @@ function findMarkdownFiles(dir: string): string[] {
  * @param pdfPath - Path to the PDF file
  * @param jobId - Job ID for progress tracking
  * @param options - Parsing options
- * @returns HTML content
+ * @param returnMarkdown - Whether to return markdown instead of HTML
+ * @returns HTML content or markdown content
  */
 export async function mineruSelfHostedPipeline(
     pdfPath: string,
     jobId: string,
-    options: ParseOptions = {}
+    options: ParseOptions = {},
+    returnMarkdown: boolean = false
 ): Promise<string> {
     console.log('\n=== Starting Self-Hosted MinerU PDF to HTML Pipeline ===\n');
     console.log(`Input file: ${pdfPath}`);
+
+    // Initialize MongoDB cache
+    await initMongo();
+
+    // Check cache if MongoDB is available
+    if (cacheCollection) {
+        const cacheKey = generateCacheKey(pdfPath, options);
+        console.log(`Checking cache with key: ${cacheKey}`);
+
+        const cachedResult = await cacheCollection.findOne({cache_key: cacheKey});
+
+        if (cachedResult) {
+            console.log('✅ Found cached result, skipping parsing');
+            await setJobProgress(jobId, {
+                status: JobStatus.PROCESSING,
+                message: "Using cached result"
+            });
+
+            if (returnMarkdown) {
+                return cachedResult.markdown_content;
+            }
+            return cachedResult.html_content;
+        }
+
+        console.log('Cache miss, proceeding with parsing');
+    }
 
     // Step 1: Call API to get ZIP
     await setJobProgress(jobId, {
@@ -228,6 +331,7 @@ export async function mineruSelfHostedPipeline(
     });
 
     const markdownContent = fs.readFileSync(processedMdPath, 'utf-8');
+
     const htmlContent = `<html>
 <head>
   <meta charset="UTF-8">
@@ -268,11 +372,36 @@ export async function mineruSelfHostedPipeline(
 </body>
 </html>`;
 
-    // Step 6: Clean up temporary directory
+    // Step 6: Save to cache if MongoDB is available
+    if (cacheCollection) {
+        try {
+            const cacheKey = generateCacheKey(pdfPath, options);
+            console.log('Saving result to cache...');
+            await cacheCollection.insertOne({
+                cache_key: cacheKey,
+                pdf_path: path.basename(pdfPath),
+                markdown_content: markdownContent,
+                html_content: htmlContent,
+                options: options,
+                created_at: new Date(),
+                image_count: assetPaths.length
+            });
+            console.log('✅ Result cached successfully');
+        } catch (error) {
+            console.error('Failed to cache result:', error);
+            // Continue execution even if caching fails
+        }
+    }
+
+    // Step 7: Clean up temporary directory
     console.log('Cleaning up temporary files...');
     await fs.promises.rm(outputDir, {recursive: true, force: true});
 
     console.log('\n=== Pipeline completed successfully! ===\n');
+
+    if (returnMarkdown) {
+        return markdownContent;
+    }
     return htmlContent;
 }
 
