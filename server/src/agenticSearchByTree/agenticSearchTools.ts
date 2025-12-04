@@ -1,7 +1,7 @@
 import {generateText, tool} from 'ai';
 import {openai} from '@ai-sdk/openai';
 import {z} from 'zod';
-import {NodeM, TreeM} from "./schema";
+import {NodeM, TreeM} from "../schema";
 import showdown from "showdown";
 
 // Helper function to get node title

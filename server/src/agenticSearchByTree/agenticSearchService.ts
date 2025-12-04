@@ -1,6 +1,6 @@
 import {generateText, stepCountIs} from 'ai';
 import {openai} from '@ai-sdk/openai';
-import {NodeM, TreeM} from "./schema";
+import {NodeM, TreeM} from "../schema";
 import TurndownService from 'turndown';
 import {createAgenticSearchTools} from "./agenticSearchTools";
 
