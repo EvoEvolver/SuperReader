@@ -8,7 +8,7 @@ import fs from 'fs';
 
 const router = Router();
 
-// Configure multer for PDF upload
+// Configure multer for PDF upload(s)
 const upload = multer({
     dest: 'uploads/',
     limits: {
@@ -47,14 +47,20 @@ const upload = multer({
  * - complete: Processing completed
  * - error: Error occurred
  */
-router.post('/pdf_question_stream', upload.single('file'), async (req: Request, res: Response) => {
+router.post('/pdf_question_stream', upload.any(), async (req: Request, res: Response) => {
     const jobId = uuidv4();
-    let pdfPath: string | null = null; // Track renamed path for cleanup
+    const renamedPdfPaths: string[] = []; // Track renamed paths for cleanup
 
     try {
-        // Validate inputs
-        if (!req.file) {
-            res.status(400).json({error: 'No PDF file provided'});
+        // Validate inputs (support single or multiple files)
+        const files: Express.Multer.File[] = Array.isArray((req as any).files)
+            ? ((req as any).files as Express.Multer.File[])
+            : (req as any).file
+                ? [((req as any).file as Express.Multer.File)]
+                : [];
+
+        if (!files.length) {
+            res.status(400).json({error: 'No PDF file(s) provided'});
             return;
         }
 
@@ -84,45 +90,60 @@ router.post('/pdf_question_stream', upload.single('file'), async (req: Request, 
             res.write(`data: ${JSON.stringify(data)}\n\n`);
         };
 
-        console.log(`[pdf_question_stream] Job ${jobId}: Processing PDF ${req.file.originalname}`);
+        console.log(`[pdf_question_stream] Job ${jobId}: Processing ${files.length} PDF(s)`);
         console.log(`[pdf_question_stream] Question: "${question}"`);
         console.log(`[pdf_question_stream] Options: iterations=${maxIterations}, model=${model}`);
 
         sendEvent('status', {
             stage: 'pdf_parsing',
-            message: 'Starting PDF parsing with MinerU...',
-            jobId
-        });
-
-        // Step 1: Parse PDF to markdown using MinerU
-        // Rename the file to have .pdf extension
-        const originalPath = req.file.path;
-        pdfPath = `${originalPath}.pdf`;
-        fs.renameSync(originalPath, pdfPath);
-
-        // Convert to absolute path
-        const absolutePdfPath = path.resolve(pdfPath);
-        const markdownContent = await mineruSelfHostedPipeline(
-            absolutePdfPath,
+            message: `Starting PDF parsing with MinerU for ${files.length} file(s)...`,
             jobId,
-            {
-                parseFormula,
-                parseTable,
-                parseOcr
-            },
-            true // Return markdown instead of HTML
-        );
-
-        sendEvent('status', {
-            stage: 'pdf_parsed',
-            message: `PDF parsed successfully (${markdownContent.length} characters)`,
-            documentLength: markdownContent.length
+            fileCount: files.length
         });
 
-        // Step 2: Use agentic reader to answer the question
+        // Step 1: Parse each PDF to markdown using MinerU
+        const markdownContents: string[] = [];
+        let index = 0;
+        for (const f of files) {
+            index += 1;
+            const originalPath = f.path;
+            const renamed = `${originalPath}.pdf`;
+            fs.renameSync(originalPath, renamed);
+            renamedPdfPaths.push(renamed);
+
+            const absolutePdfPath = path.resolve(renamed);
+            sendEvent('status', {
+                stage: 'pdf_parsing',
+                message: `Parsing file ${index}/${files.length}: ${f.originalname}`,
+                fileIndex: index,
+                filename: f.originalname
+            });
+
+            const markdownContent = await mineruSelfHostedPipeline(
+                absolutePdfPath,
+                jobId,
+                {
+                    parseFormula,
+                    parseTable,
+                    parseOcr
+                },
+                true // Return markdown instead of HTML
+            );
+
+            markdownContents.push(markdownContent);
+            sendEvent('status', {
+                stage: 'pdf_parsed',
+                message: `Parsed file ${index}/${files.length}: ${f.originalname} (${markdownContent.length} characters)`,
+                fileIndex: index,
+                filename: f.originalname,
+                documentLength: markdownContent.length
+            });
+        }
+
+        // Step 2: Use agentic reader to answer the question with multiple documents
         await agenticReaderWithEvents(
             question,
-            markdownContent,
+            markdownContents,
             sendEvent,
             {
                 max_iterations: maxIterations,
@@ -131,11 +152,13 @@ router.post('/pdf_question_stream', upload.single('file'), async (req: Request, 
             }
         );
 
-        // Clean up the uploaded file (with .pdf extension)
-        try {
-            fs.unlinkSync(pdfPath);
-        } catch (error) {
-            console.warn(`[pdf_question_stream] Failed to delete uploaded file: ${error}`);
+        // Clean up the uploaded files (with .pdf extension)
+        for (const p of renamedPdfPaths) {
+            try {
+                fs.unlinkSync(p);
+            } catch (error) {
+                console.warn(`[pdf_question_stream] Failed to delete uploaded file: ${error}`);
+            }
         }
 
         console.log(`[pdf_question_stream] Job ${jobId}: Completed successfully`);
@@ -157,15 +180,13 @@ router.post('/pdf_question_stream', upload.single('file'), async (req: Request, 
             res.end();
         }
 
-        // Clean up uploaded file on error
-        if (req.file) {
-            try {
-                // Try to delete the renamed file first, fall back to original path
-                const pathToDelete = pdfPath || req.file.path;
-                fs.unlinkSync(pathToDelete);
-            } catch (cleanupError) {
-                console.warn(`[pdf_question_stream] Failed to delete uploaded file: ${cleanupError}`);
+        // Clean up uploaded files on error
+        try {
+            for (const p of renamedPdfPaths) {
+                try { fs.unlinkSync(p); } catch {}
             }
+        } catch (cleanupError) {
+            console.warn(`[pdf_question_stream] Failed to delete uploaded files: ${cleanupError}`);
         }
     }
 });

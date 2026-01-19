@@ -4,7 +4,7 @@ import { generateText, stepCountIs } from 'ai';
 import { openai } from '@ai-sdk/openai';
 
 export interface AgenticReaderToolsContext {
-  fullContent: string;
+  documents: Array<{ id: number; content: string; name?: string }>;
   emitEvent?: (event: string, data: any) => void;
   stats?: {
     tool_calls: number;
@@ -17,16 +17,22 @@ export interface AgenticReaderToolsContext {
 }
 
 export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
-  const { fullContent, emitEvent, stats, memo } = context;
+  const { documents, emitEvent, stats, memo } = context;
+
+  const docMap = new Map<number, string>();
+  for (const d of documents) {
+    docMap.set(d.id, d.content);
+  }
 
   return {
     readContent: tool({
-      description: 'Read content from the document between two positions. Returns text from startPosition to endPosition. Use this to explore specific parts of the document.',
+      description: 'Read content from a specific document between two positions. You MUST provide docId (e.g., 1, 2). Returns text from startPosition to endPosition for that document.',
       inputSchema: z.object({
+        docId: z.number().describe('The document id to read from (e.g., 1, 2).'),
         startPosition: z.number().describe('The starting character position in the document (0-indexed, inclusive)'),
         endPosition: z.number().describe('The ending character position in the document (0-indexed, exclusive)'),
       }),
-      execute: async ({ startPosition, endPosition }) => {
+      execute: async ({ docId, startPosition, endPosition }) => {
         if (stats) {
           stats.tool_calls++;
           stats.content_reads++;
@@ -35,10 +41,20 @@ export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
         if (emitEvent) {
           emitEvent('tool_call', {
             tool: 'readContent',
+            docId,
             startPosition,
             endPosition,
           });
         }
+
+        if (!docMap.has(docId)) {
+          return {
+            success: false,
+            error: `Invalid docId ${docId}. Available docIds: ${Array.from(docMap.keys()).join(', ')}`,
+          };
+        }
+
+        const fullContent = docMap.get(docId)!;
 
         // Validate positions
         if (startPosition < 0 || startPosition > fullContent.length) {
@@ -80,6 +96,7 @@ export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
 
         if (emitEvent) {
           emitEvent('content_read', {
+            docId,
             startPosition,
             endPosition,
             contentLength: content.length,
@@ -91,6 +108,7 @@ export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
           content,
           summarized: false,
           metadata: {
+            docId,
             startPosition,
             endPosition,
             contentLength: content.length,
@@ -240,13 +258,14 @@ export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
     }),*/
 
     searchContent: tool({
-      description: 'Search for content in the document using regex patterns. Returns the positions where matches are found.',
+      description: 'Search for content inside a specific document using regex patterns. You MUST provide docId (e.g., 1, 2). Returns the positions where matches are found within that document.',
       inputSchema: z.object({
+        docId: z.number().describe('The document id to search in (e.g., 1, 2).'),
         searchPattern: z.string().describe('Regex pattern to search for in the document (e.g., "\\\\bprotein\\\\b", "temperature.*°C", etc.)'),
         maxResults: z.number().optional().describe('Maximum number of results to return (default: 5)'),
         flags: z.string().optional().describe('Regex flags (default: "gi" for global case-insensitive). Common flags: g=global, i=case-insensitive, m=multiline'),
       }),
-      execute: async ({ searchPattern, maxResults = 5, flags = 'gi' }) => {
+      execute: async ({ docId, searchPattern, maxResults = 5, flags = 'gi' }) => {
         if (stats) {
           stats.tool_calls++;
         }
@@ -254,6 +273,7 @@ export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
         if (emitEvent) {
           emitEvent('tool_call', {
             tool: 'searchContent',
+            docId,
             searchPattern,
             maxResults,
             flags,
@@ -261,6 +281,13 @@ export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
         }
 
         try {
+          if (!docMap.has(docId)) {
+            return {
+              success: false,
+              error: `Invalid docId ${docId}. Available docIds: ${Array.from(docMap.keys()).join(', ')}`,
+            };
+          }
+          const fullContent = docMap.get(docId)!;
           // Create regex from pattern
           const regex = new RegExp(searchPattern, flags);
           const results: Array<{ position: number; context: string; match: string }> = [];
@@ -292,6 +319,7 @@ export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
 
           if (emitEvent) {
             emitEvent('search_complete', {
+              docId,
               searchPattern,
               resultsFound: results.length,
             });
@@ -299,6 +327,7 @@ export function createAgenticReaderTools(context: AgenticReaderToolsContext) {
 
           return {
             success: true,
+            docId,
             searchPattern,
             flags,
             resultsFound: results.length,
