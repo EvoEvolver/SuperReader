@@ -371,6 +371,60 @@ router.post('/submit/nature_to_tree', async (req: Request, res: Response) => {
     res.json({ status: 'success', message: 'Nature paper processing started', job_id: job_id });
 });
 
+// Convert PDF to Markdown endpoint (synchronous, accepts file upload)
+router.post('/pdf_to_markdown', upload.single('file'), async (req: Request & { file?: Express.Multer.File }, res: Response) => {
+    if (!req.file) {
+        res.status(400).json({
+            status: 'error',
+            message: 'No file uploaded'
+        });
+        return;
+    }
+
+    // Check if it's a PDF
+    const isPdf = req.file.mimetype === 'application/pdf' && req.file.originalname.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+        res.status(400).json({
+            status: 'error',
+            message: 'Only PDF files are allowed'
+        });
+        return;
+    }
+
+    let tempFilePath: string | null = null;
+    try {
+        // Save uploaded file to temporary location
+        const tempDir = os.tmpdir();
+        tempFilePath = path.join(tempDir, `${randomUUID()}.pdf`);
+        fs.writeFileSync(tempFilePath, req.file.buffer);
+
+        // Generate a job_id for progress tracking (used internally by mineruSelfHostedPipeline)
+        const job_id = randomUUID();
+
+        // Process using self-hosted pipeline with returnMarkdown=true
+        const markdownContent = await mineruSelfHostedPipeline(tempFilePath, job_id, {}, true);
+
+        // Return the markdown content directly
+        res.json({
+            status: 'success',
+            markdown: markdownContent,
+            original_filename: req.file.originalname
+        });
+
+    } catch (error: any) {
+        console.error("PDF to markdown conversion failed:", error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Conversion failed: ' + error.message
+        });
+    } finally {
+        // Clean up temporary file
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+        }
+    }
+});
+
 // Get processing result/status
 router.post('/result', async (req: Request, res: Response) => {
     const job_id = req.body.job_id;
